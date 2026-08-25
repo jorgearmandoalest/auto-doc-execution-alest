@@ -20,20 +20,24 @@ O Notion é a fonte única dos detalhes.
 
 ## Ordem obrigatória
 
+**Regra principal:** `auto-doc-execution-alest` deve ser a última skill, agente ou chain iniciada no turno. Ela só pode começar depois que a tarefa principal, todas as demais skills, agentes e chains e todas as validações estiverem concluídas.
+
+Depois que `auto-doc-execution-alest` começar, nenhuma outra skill, agente ou chain pode ser executada e nenhuma ação da tarefa principal pode ser retomada. A partir desse ponto, são permitidos somente os passos internos desta chain — localizar, documentar e verificar o registro no Notion — e a emissão da saída final.
+
 Em todo prompt do usuário:
 
 1. executar normalmente a tarefa principal;
 2. concluir todas as outras skills, agentes e chains;
 3. confirmar que não resta ação, ferramenta ou validação da tarefa principal;
-4. executar `auto-doc-execution-alest` exatamente uma vez;
+4. iniciar `auto-doc-execution-alest` exatamente uma vez, somente como a última execução do turno;
 5. localizar o hub `Execuções`;
 6. localizar ou, após autorização, criar a página da atividade específica;
 7. documentar nessa página de atividade;
 8. verificar por leitura que o registro foi persistido;
-9. não executar nenhuma ação da tarefa principal depois da documentação;
+9. depois de iniciar `auto-doc-execution-alest`, não executar nenhuma ação da tarefa principal nem acionar outra skill, agente ou chain;
 10. emitir somente a saída permitida.
 
-Esta chain é sempre a última etapa. Ela não corrige, altera, reabre ou interfere no trabalho anterior.
+Esta chain é sempre a última etapa. Ela não corrige, altera, reabre ou interfere no trabalho anterior. Se ainda houver qualquer ação principal, skill, agente, chain ou validação pendente, `auto-doc-execution-alest` ainda não pode ser iniciada.
 
 ## Silêncio obrigatório
 
