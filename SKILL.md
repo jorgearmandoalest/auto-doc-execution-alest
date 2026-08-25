@@ -8,20 +8,15 @@ always: true
 
 ## Identidade da chain
 
-Esta é uma chain declarativa e sempre ativa do **Kiro Crew**. O próprio Kiro Crew deve ler e interpretar estas instruções. Não há código, npm, script, hook ou processo externo para executar.
-
 O Notion já deve estar configurado no gateway. Esta chain nunca instala, configura, autentica ou altera o MCP do Notion.
 
 ## Objetivo
 
 Depois de concluir a solicitação principal e todas as demais skills, agentes ou chains do turno, localizar dentro da página `Execuções` a página específica da atividade em andamento e documentar a execução nela.
 
-A página `Execuções` é somente o hub. Os registros detalhados devem ficar em páginas filhas de atividades específicas, como:
+A página `Execuções` é somente o hub. Os registros detalhados devem ficar em páginas filhas de atividades específicas,
 
-- `Documentação do serviço OSB — Member`;
-- `Documentação do serviço OSB — Login`.
-
-O Notion é a fonte única dos detalhes. No chat, não mostrar o resultado da tarefa, plano, progresso, chamadas de ferramenta ou resumo. Mostrar somente a mensagem final definida neste contrato.
+O Notion é a fonte única dos detalhes. 
 
 ## Ordem obrigatória
 
