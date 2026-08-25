@@ -2,19 +2,52 @@
 
 Chain declarativa, sempre ativa e nativa do **Kiro Crew** para documentar no Notion cada execução concluída.
 
-## Sem runtime próprio
+## Runtime declarativo
 
 Este repositório não contém nem exige:
 
 - npm;
 - Node.js;
 - Python;
-- scripts de instalação;
+- scripts de runtime;
 - hooks do Kiro IDE;
 - agentes auxiliares;
 - configuração do MCP do Notion.
 
-O único artefato funcional é [`SKILL.md`](./SKILL.md). O Kiro Crew lê e interpreta o contrato diretamente como uma skill/chain com `always: true`.
+O único artefato carregado pelo Kiro Crew é [`SKILL.md`](./SKILL.md). O arquivo [`install.sh`](./install.sh) é apenas um instalador auxiliar: ele copia a skill para o diretório correto e não participa de sua execução.
+
+## Instalação no Kiro Crew
+
+Em Linux ou macOS, clone o repositório e execute:
+
+```bash
+git clone git@github.com:jorgearmandoalest/auto-doc-execution-alest.git
+cd auto-doc-execution-alest
+bash install.sh
+```
+
+Por padrão, a skill é instalada em:
+
+```text
+~/.kiro/crew/skills/auto-doc-execution-alest/SKILL.md
+```
+
+Quando `KIROCREW_HOME` estiver definido, o instalador respeita esse diretório:
+
+```bash
+KIROCREW_HOME=/caminho/do/kirocrew bash install.sh
+```
+
+O instalador:
+
+- valida o nome da skill e `always: true` antes de copiar;
+- pode ser executado de qualquer diretório;
+- não altera nada quando a versão instalada já é idêntica;
+- cria um backup antes de substituir uma versão diferente;
+- grava o novo `SKILL.md` de forma atômica e verifica o resultado;
+- não usa `sudo`, não altera MCP ou credenciais e não reinicia o gateway.
+
+Abra uma nova sessão do Kiro Crew depois da instalação para carregar a skill.
 
 ## Pré-requisito
 
@@ -88,6 +121,8 @@ A chain lê antes de escrever, preserva o conteúdo existente e deduplica pelo i
 
 ## Uso no Kiro Crew
 
-Importe este repositório como uma skill do Kiro Crew ou use o conteúdo de `SKILL.md` na área **Skills**. O frontmatter `always: true` faz o Kiro Crew carregar o contrato em todas as sessões.
+A forma recomendada é executar `bash install.sh`. Como alternativa manual, importe este repositório como uma skill do Kiro Crew ou use o conteúdo de `SKILL.md` na área **Skills**.
 
-Não execute `npm install`, `npm test` ou qualquer script deste repositório: eles não existem e não fazem parte da chain.
+O frontmatter `always: true` faz o Kiro Crew carregar o contrato em todas as novas sessões.
+
+Não execute `npm install` ou `npm test`: não há runtime npm neste repositório.
