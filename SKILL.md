@@ -1,28 +1,35 @@
 ---
 name: auto-doc-execution-alest
-description: Registra silenciosamente no Notion um registro mínimo de todo turno concluído pelo Kiro Crew e gera relatório completo somente quando houver efeito relevante, como última etapa não bloqueante do prompt.
-always: true
+description: Documenta no Notion cada turno concluído pelo Kiro Crew, com registro mínimo sempre e relatório completo somente quando houver efeito relevante. É carregada deterministicamente pelo hook UserPromptSubmit.
+always: false
 ---
 
 # auto-doc-execution-alest
 
+## Contrato de disparo
+
+- O único gatilho desta chain é o hook nativo do Kiro Crew definido em `hook.json`.
+- O hook usa o evento `UserPromptSubmit`, sem matcher e sem comando de shell, e injeta a skill `$auto-doc-execution-alest` em todo prompt submetido.
+- Não depender de ativação semântica, correspondência da descrição ou `always: true`.
+- Tratar cada ocorrência real de `UserPromptSubmit` como um turno independente, inclusive prompts submetidos por fluxos iterativos ou loops.
+- O hook apenas garante o carregamento da skill no início do turno; a persistência no Notion continua sendo executada no fim do turno.
+- Mesmo se uma instalação antiga causar carregamento duplicado, executar a autodocumentação exatamente uma vez por prompt e usar um único `Execution ID`.
+
 ## Contrato essencial
 
-- Usar este `SKILL.md` como único artefato de runtime da chain.
 - Usar exclusivamente a conexão do Notion já disponível no gateway do Kiro Crew.
 - Nunca instalar, configurar, autenticar ou alterar o MCP do Notion.
-- Executar exatamente uma vez por prompt e somente como última etapa do turno.
-- Tratar cada novo prompt como um turno independente, inclusive pedidos posteriores de teste, commit, merge ou push.
-- Registrar todo turno no Notion: **registro mínimo sempre; relatório completo somente quando houver efeito relevante**.
-- Tratar o relatório completo como extensão do registro mínimo, nunca como um segundo registro da mesma execução.
-- Tratar a autodocumentação como pós-condição não bloqueante: sua falha nunca pode falhar, reverter, repetir, reabrir nem alterar o status da tarefa principal.
-- Manter o Notion como fonte única dos detalhes e limitar o chat à confirmação de persistência ou às exceções previstas nesta skill.
+- Concluir a tarefa principal antes de iniciar a autodocumentação.
+- Registrar todo turno: **registro mínimo sempre; relatório completo somente quando houver efeito relevante**.
+- Tratar o relatório completo como extensão do registro mínimo, nunca como segundo registro da mesma execução.
+- Tratar a autodocumentação como pós-condição não bloqueante: sua falha nunca pode falhar, reverter, repetir, reabrir ou alterar o status da tarefa principal.
+- Manter o Notion como fonte dos detalhes e limitar o chat à confirmação de persistência ou às exceções previstas nesta skill.
 
 ## Classificação determinística
 
 Antes de escrever, classificar a execução como `MINIMO` ou `COMPLETO`. Não decidir apenas por percepção subjetiva de importância.
 
-Classificar como `COMPLETO` quando **pelo menos um** dos critérios abaixo for observado:
+Classificar como `COMPLETO` quando **pelo menos um** destes critérios for observado:
 
 1. **Mutação persistente:** criação, edição, exclusão, arquivamento, restauração, movimentação ou alteração de estado em página, database, arquivo, código, configuração, repositório ou serviço externo.
 2. **Git e entrega:** branch, commit, push, merge, pull request, tag, release, deploy, publicação ou rollback.
@@ -32,7 +39,7 @@ Classificar como `COMPLETO` quando **pelo menos um** dos critérios abaixo for o
 6. **Decisão relevante:** aprovação, rejeição, mudança de abordagem, regra, escopo, prioridade ou restrição que altere o trabalho seguinte.
 7. **Achado material:** auditoria, investigação, teste ou validação que produziu evidência, conclusão, falha, risco, bloqueio ou pendência acionável.
 
-Classificar como `MINIMO` somente quando **nenhum** critério de `COMPLETO` ocorrer. Exemplos típicos:
+Classificar como `MINIMO` somente quando nenhum critério de `COMPLETO` ocorrer. Exemplos:
 
 - pergunta e resposta informativa;
 - tradução, explicação ou orientação sem persistência;
@@ -51,23 +58,24 @@ Regras de desempate:
 
 ## Ordem obrigatória
 
-Em todo prompt:
+Em cada disparo de `UserPromptSubmit`:
 
-1. concluir a tarefa principal;
-2. concluir todas as outras skills, agentes, chains, testes e validações;
-3. confirmar internamente que não resta ação da tarefa principal;
-4. iniciar `auto-doc-execution-alest` exatamente uma vez;
-5. gerar ou reutilizar o `Execution ID` do turno;
-6. classificar o turno como `MINIMO` ou `COMPLETO` pela lista determinística;
-7. localizar o hub `Execuções` pelo título exato;
-8. resolver o destino conforme a classificação;
-9. ler antes de escrever e deduplicar pelo `Execution ID`;
-10. persistir o registro correspondente;
-11. reler e validar somente a autodocumentação;
-12. corrigir apenas o registro, quando necessário;
-13. emitir somente a saída permitida.
+1. carregar esta skill;
+2. executar e concluir a tarefa principal;
+3. concluir outras skills, agentes, chains, testes e validações;
+4. confirmar internamente que não resta ação da tarefa principal;
+5. iniciar a autodocumentação exatamente uma vez;
+6. gerar ou reutilizar o `Execution ID` do turno;
+7. classificar o turno como `MINIMO` ou `COMPLETO`;
+8. localizar o hub `Execuções` pelo título exato;
+9. resolver o destino conforme a classificação;
+10. ler antes de escrever e deduplicar pelo `Execution ID`;
+11. persistir o registro correspondente;
+12. reler e validar somente a autodocumentação;
+13. corrigir apenas o novo registro, quando necessário;
+14. emitir somente a saída permitida.
 
-Depois que esta chain começar, não iniciar outra skill, agente, chain ou investigação e não retomar a tarefa principal.
+Depois que a autodocumentação começar, não iniciar outra skill, agente, chain ou investigação e não retomar a tarefa principal.
 
 ## Silêncio obrigatório
 
@@ -76,7 +84,7 @@ Antes da mensagem final:
 - não anunciar plano, progresso ou chamadas ao Notion;
 - não mostrar o relatório detalhado no chat;
 - não expor raciocínio privado, prompts, tokens ou segredos;
-- não pedir confirmação fora das exceções expressamente previstas;
+- não pedir confirmação fora das exceções previstas;
 - não acrescentar saudação, explicação, rodapé ou opções à saída final.
 
 ## Fonte, veracidade e segurança
@@ -89,7 +97,7 @@ Usar somente fatos observáveis no prompt, na sessão, nas ferramentas e nos art
 - Registrar justificativa comunicável e verificável, nunca cadeia de pensamento privada.
 - Nunca registrar token, senha, cookie, chave, cabeçalho de autenticação, segredo, PII desnecessária ou log bruto extenso.
 - Sanitizar comandos e saídas; conservar somente linhas decisivas e referências úteis.
-- Não reabrir a tarefa principal para buscar detalhes depois que esta chain começar.
+- Não reabrir a tarefa principal para buscar detalhes depois que a autodocumentação começar.
 
 ## Conexão com o Notion
 
@@ -122,11 +130,7 @@ Se houver mais de um hub exato, responder somente:
 
 ## Destino de `MINIMO`
 
-Usar uma única página filha do hub com o título exato:
-
-```text
-Registro mínimo
-```
+Usar uma única página filha do hub com o título exato `Registro mínimo`.
 
 Essa página é o ledger compacto dos turnos sem efeito relevante. Não criar uma página por conversa e não misturar esses registros com relatórios completos de atividades.
 
@@ -167,7 +171,7 @@ Se houver mais de uma atividade igualmente compatível, perguntar somente:
 - Identificar o autor pela sessão, usuário do prompt, `git config user.name` já disponível ou `Autor não identificado`, nessa ordem.
 - Ler o destino e procurar o `Execution ID` antes de escrever.
 - Se não existir, acrescentar um registro; se existir, atualizar somente o registro correspondente.
-- Nunca criar dois registros para o mesmo turno, mesmo que o tipo seja `COMPLETO`.
+- Nunca criar dois registros para o mesmo turno, mesmo com carregamento duplicado da skill.
 - Preservar registros anteriores, blocos, links, menções, anexos, databases incorporados e ordem cronológica.
 - Separar registros com divisor e acrescentar ao final quando não houver padrão diferente.
 
