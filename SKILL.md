@@ -1,6 +1,6 @@
 ---
 name: auto-doc-execution-alest
-description: Documenta silenciosamente no Notion cada execução concluída pelo Kiro Crew, como última etapa, com roteamento por atividade, detalhamento auditável e apresentação visual padronizada.
+description: Documenta silenciosamente no Notion cada execução concluída pelo Kiro Crew, como última etapa não bloqueante de cada prompt, com roteamento por atividade, detalhamento auditável e apresentação visual padronizada.
 always: true
 ---
 
@@ -12,6 +12,8 @@ always: true
 - Usar exclusivamente a conexão do Notion já disponível no gateway do Kiro Crew.
 - Nunca instalar, configurar, autenticar ou alterar o MCP do Notion.
 - Executar a chain exatamente uma vez por prompt e somente como última etapa do turno.
+- Tratar cada novo prompt do usuário como um turno independente: pedidos de continuação, como testar, commitar, fazer merge ou push, exigem uma nova execução desta chain ao final.
+- Tratar a autodocumentação como uma pós-condição não bloqueante: falha ao documentar nunca pode falhar, reverter, bloquear, repetir nem alterar o status da tarefa principal.
 - Tratar a página `Execuções` apenas como hub e registrar cada execução na página filha da atividade específica em andamento.
 - Manter o Notion como fonte única dos detalhes; limitar o chat à saída final ou a uma exceção prevista nesta skill.
 
@@ -43,6 +45,8 @@ Ser extremamente detalhista não significa despejar logs. Priorizar fatos releva
 
 **Regra principal:** iniciar `auto-doc-execution-alest` somente depois que a tarefa principal, todas as demais skills, agentes, chains e todas as validações estiverem concluídas.
 
+Cada prompt é um turno autônomo para fins de autodocumentação. Uma ação solicitada em um prompt posterior — mesmo que seja continuação direta do trabalho anterior — é uma nova execução e deve gerar um novo registro exatamente uma vez.
+
 Depois que esta chain começar, não executar outra skill, agente ou chain, não retomar a tarefa principal e não abrir uma nova frente de investigação. Permitir somente localizar, documentar, corrigir o próprio registro, reler o Notion e emitir a saída final.
 
 Em todo prompt do usuário:
@@ -61,6 +65,15 @@ Em todo prompt do usuário:
 12. emitir somente a saída permitida.
 
 Esta chain não corrige, altera, reabre ou interfere no trabalho anterior. Se ainda houver qualquer ação principal, skill, agente, chain ou validação pendente, ainda não iniciar `auto-doc-execution-alest`.
+
+A conclusão da tarefa principal é definitiva e independente desta fase. Se a autodocumentação não puder ser persistida, nunca desfazer ações, alterar o status da tarefa, reexecutar a tarefa principal ou entrar em repetição de tentativas. Encerrar apenas a fase de documentação e informar a exceção ao usuário.
+
+Antes de encerrar cada prompt, verificar internamente que ocorreu exatamente um dos dois resultados:
+
+- a execução do prompt foi documentada e relida com sucesso; ou
+- a documentação não pôde ser concluída e a exceção objetiva será informada ao usuário.
+
+Encerrar um prompt sem tentar esta chain e sem informar uma exceção é violação deste contrato.
 
 ## Silêncio obrigatório
 
@@ -97,6 +110,8 @@ Aplicar estas regras:
 
 Usar exclusivamente a conexão do Notion já disponível no Kiro Crew.
 
+A disponibilidade e a gravação no Notion afetam somente a autodocumentação. Nunca usar uma falha desta fase para classificar a tarefa principal como falha, parcial ou bloqueada quando ela tiver sido concluída com outro status.
+
 Não tentar:
 
 - instalar servidor MCP;
@@ -104,12 +119,14 @@ Não tentar:
 - solicitar token;
 - alterar credenciais;
 - reiniciar o gateway automaticamente;
-- executar comandos para reparar a conexão.
+- executar comandos para reparar a conexão;
+- reexecutar ou desfazer a tarefa principal;
+- entrar em repetição de tentativas de documentação.
 
-Se não for possível usar a conexão existente por qualquer motivo — MCP ausente, desabilitado, desconectado, sem autenticação, sem resposta ou com erro de gateway — parar e responder somente:
+Se não for possível usar a conexão existente por qualquer motivo — MCP ausente, desabilitado, desconectado, sem autenticação, sem resposta ou com erro de gateway — encerrar somente a fase de autodocumentação, preservar integralmente o resultado da tarefa principal e responder somente:
 
 ```text
-⚠️ Não consegui conectar ao Notion. Reinicie o gateway com `kirocrew restart` e tente novamente.
+⚠️ A tarefa principal foi concluída, mas não consegui documentar a execução no Notion. Reinicie o gateway com `kirocrew restart` e tente novamente.
 ```
 
 ## Localização do hub
@@ -137,14 +154,14 @@ Se não existir uma página com o título exato `Execuções`, fazer somente est
 ❓ Não encontrei a página “Execuções”. Deseja que eu a crie? Se sim, informe a página-pai autorizada.
 ```
 
-Não criar o hub sem autorização afirmativa e página-pai válida.
+Não criar o hub sem autorização afirmativa e página-pai válida. A ausência do hub não altera nem invalida o resultado da tarefa principal.
 
 ### Hub ambíguo
 
 Se houver mais de uma página com o título exato `Execuções`, não escolher arbitrariamente e não escrever. Responder somente:
 
 ```text
-⚠️ Não documentei a execução porque encontrei mais de uma página com o título exato “Execuções”.
+⚠️ A tarefa principal foi concluída, mas não documentei a execução porque encontrei mais de uma página com o título exato “Execuções”.
 ```
 
 ## Localização da atividade em andamento
@@ -182,21 +199,22 @@ Regras:
 - criar a nova página diretamente dentro do hub `Execuções`;
 - usar o título aprovado pelo usuário;
 - depois da criação, registrar a execução e verificar a persistência;
-- não pedir página-pai, pois o pai já é o hub `Execuções`.
+- não pedir página-pai, pois o pai já é o hub `Execuções`;
+- não alterar nem invalidar o resultado da tarefa principal enquanto aguarda a definição do destino.
 
 ### Mais de uma atividade compatível
 
 Se houver duas ou mais páginas igualmente compatíveis, não escolher arbitrariamente. Responder somente:
 
 ```text
-❓ Encontrei mais de uma atividade compatível dentro de “Execuções”: <títulos>. Qual devo usar?
+❓ A tarefa principal foi concluída. Encontrei mais de uma atividade compatível dentro de “Execuções”: <títulos>. Qual devo usar para documentá-la?
 ```
 
 Depois da resposta, usar somente a página escolhida.
 
 ## Identidade, deduplicação e preservação
 
-Gerar um `Execution ID` estável usando os identificadores disponíveis da sessão e do prompt. Se nenhum identificador estável estiver disponível, gerar um UUID e reutilizá-lo durante todo o turno.
+Gerar um `Execution ID` estável usando os identificadores disponíveis da sessão e do prompt. Cada prompt independente deve possuir seu próprio `Execution ID`, inclusive prompts de continuação como teste, commit, merge ou push. Se nenhum identificador estável estiver disponível, gerar um UUID e reutilizá-lo durante todo o turno.
 
 Identificar o autor nesta ordem:
 
@@ -275,6 +293,8 @@ Usar um destes formatos:
 ⛔ Bloqueado — <impedimento objetivo>
 ❌ Falha — <resultado não alcançado e impacto imediato>
 ```
+
+O status do registro deve refletir exclusivamente a tarefa principal. Uma falha na própria autodocumentação nunca transforma uma tarefa principal bem-sucedida em `Parcial`, `Bloqueado` ou `Falha`.
 
 #### Resumo executivo
 
@@ -431,6 +451,8 @@ Classificar como `Sucesso`, `Parcial`, `Bloqueado` ou `Falha` e explicar:
 - qual evidência sustenta o status;
 - qual impacto imediato foi observado.
 
+A classificação pertence à tarefa principal e nunca deve ser rebaixada por falha da autodocumentação.
+
 ### ➡️ Próxima ação
 
 Registrar uma próxima ação concreta com verbo e objeto. Incluir responsável e prazo somente quando conhecidos. Usar `Nenhuma — execução concluída e validada` apenas quando isso for verdadeiro.
@@ -584,15 +606,17 @@ Depois da escrita, reler a página da atividade e validar todos os grupos abaixo
 
 Se a verificação detectar falha de conteúdo ou apresentação, corrigir somente o novo registro e reler novamente. Não retomar a tarefa principal.
 
-Se a escrita ou a leitura de confirmação falhar por erro de conexão, usar exclusivamente a mensagem de falha de conexão com a sugestão `kirocrew restart`.
+Se a escrita ou a leitura de confirmação falhar por erro de conexão, encerrar somente a fase de autodocumentação, preservar o resultado da tarefa principal e usar exclusivamente a mensagem de indisponibilidade do Notion definida nesta skill.
 
-Se a conexão funcionar, mas a gravação for rejeitada por permissão ou validação, responder somente:
+Se a conexão funcionar, mas a gravação for rejeitada por permissão ou validação, não reexecutar a tarefa principal, não alterar seu status e responder somente:
 
 ```text
-⚠️ Conectei ao Notion, mas não consegui registrar a execução em “<título da atividade>”.
+⚠️ A tarefa principal foi concluída, mas não consegui registrar a execução em “<título da atividade>”.
 ```
 
 ## Saída normal única
+
+A saída desta seção confirma somente a persistência da documentação. O status e os efeitos da tarefa principal permanecem independentes.
 
 Somente depois da escrita e da verificação bem-sucedidas, responder exatamente:
 
