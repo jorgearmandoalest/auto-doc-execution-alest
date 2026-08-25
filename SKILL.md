@@ -122,9 +122,9 @@ Depois de localizar o hub `Execuções`, examinar as páginas filhas e encontrar
 
 Exemplos:
 
-- uma tarefa sobre o serviço `Member` deve usar `Documentação do serviço OSB — Member`;
-- uma tarefa sobre o serviço `Login` deve usar `Documentação do serviço OSB — Login`;
-- uma tarefa sobre `Login` nunca deve ser registrada na página de `Member`.
+- uma tarefa sobre o `Serviço Exemplo A` deve usar `Documentação do serviço — Serviço Exemplo A`;
+- uma tarefa sobre o `Serviço Exemplo B` deve usar `Documentação do serviço — Serviço Exemplo B`;
+- uma tarefa sobre o `Serviço Exemplo B` nunca deve ser registrada na página do `Serviço Exemplo A`.
 
 ### Nenhuma atividade compatível
 
