@@ -1,43 +1,66 @@
 ---
 name: auto-doc-execution-alest
-description: Documenta silenciosamente no Notion cada execução concluída pelo Kiro Crew, roteando-a para a atividade em andamento correta como última etapa do prompt.
+description: Documenta silenciosamente no Notion cada execução concluída pelo Kiro Crew, como última etapa, com roteamento por atividade, detalhamento auditável e apresentação visual padronizada.
 always: true
 ---
 
 # auto-doc-execution-alest
 
-## Identidade da chain
+## Contrato essencial
 
-O Notion já deve estar configurado no gateway. Esta chain nunca instala, configura, autentica ou altera o MCP do Notion.
+- Usar este `SKILL.md` como único artefato de runtime da chain.
+- Usar exclusivamente a conexão do Notion já disponível no gateway do Kiro Crew.
+- Nunca instalar, configurar, autenticar ou alterar o MCP do Notion.
+- Executar a chain exatamente uma vez por prompt e somente como última etapa do turno.
+- Tratar a página `Execuções` apenas como hub e registrar cada execução na página filha da atividade específica em andamento.
+- Manter o Notion como fonte única dos detalhes; limitar o chat à saída final ou a uma exceção prevista nesta skill.
 
-## Objetivo
+## Objetivo e padrão de qualidade
 
-Depois de concluir a solicitação principal e todas as demais skills, agentes ou chains do turno, localizar dentro da página `Execuções` a página específica da atividade em andamento e documentar a execução nela.
+Depois de concluir a solicitação principal e todas as demais skills, agentes, chains e validações do turno, localizar a atividade correta dentro do hub `Execuções` e registrar nela uma documentação:
 
-A página `Execuções` é somente o hub. Os registros detalhados devem ficar em páginas filhas de atividades específicas,
+- fiel ao que ocorreu;
+- detalhada o suficiente para auditoria e continuidade por outra pessoa;
+- estruturada de forma previsível;
+- visualmente limpa e escaneável no Notion;
+- preservada sem duplicação;
+- livre de segredos, raciocínio privado e afirmações inventadas.
 
-O Notion é a fonte única dos detalhes. 
+O registro deve permitir que uma pessoa que não acompanhou o turno responda, sem depender do chat:
+
+1. qual era o objetivo;
+2. o que entrou e o que ficou fora do escopo;
+3. o que foi feito, em qual ordem e em quais alvos;
+4. quais artefatos foram criados, alterados, consultados ou removidos;
+5. como o resultado foi validado;
+6. quais decisões, limitações, erros e riscos existiram;
+7. qual foi o resultado final;
+8. qual é a próxima ação, quando houver.
+
+Ser extremamente detalhista não significa despejar logs. Priorizar fatos relevantes, nomes concretos, caminhos, quantidades, evidências e resultados. Resumir repetições e referenciar a evidência original quando ela existir.
 
 ## Ordem obrigatória
 
-**Regra principal:** `auto-doc-execution-alest` deve ser a última skill, agente ou chain iniciada no turno. Ela só pode começar depois que a tarefa principal, todas as demais skills, agentes e chains e todas as validações estiverem concluídas.
+**Regra principal:** iniciar `auto-doc-execution-alest` somente depois que a tarefa principal, todas as demais skills, agentes, chains e todas as validações estiverem concluídas.
 
-Depois que `auto-doc-execution-alest` começar, nenhuma outra skill, agente ou chain pode ser executada e nenhuma ação da tarefa principal pode ser retomada. A partir desse ponto, são permitidos somente os passos internos desta chain — localizar, documentar e verificar o registro no Notion — e a emissão da saída final.
+Depois que esta chain começar, não executar outra skill, agente ou chain, não retomar a tarefa principal e não abrir uma nova frente de investigação. Permitir somente localizar, documentar, corrigir o próprio registro, reler o Notion e emitir a saída final.
 
 Em todo prompt do usuário:
 
 1. executar normalmente a tarefa principal;
 2. concluir todas as outras skills, agentes e chains;
-3. confirmar que não resta ação, ferramenta ou validação da tarefa principal;
-4. iniciar `auto-doc-execution-alest` exatamente uma vez, somente como a última execução do turno;
-5. localizar o hub `Execuções`;
-6. localizar ou, após autorização, criar a página da atividade específica;
-7. documentar nessa página de atividade;
-8. verificar por leitura que o registro foi persistido;
-9. depois de iniciar `auto-doc-execution-alest`, não executar nenhuma ação da tarefa principal nem acionar outra skill, agente ou chain;
-10. emitir somente a saída permitida.
+3. concluir testes, revisões e validações da tarefa principal;
+4. confirmar internamente que não resta ação da tarefa principal;
+5. iniciar `auto-doc-execution-alest` exatamente uma vez;
+6. localizar o hub `Execuções`;
+7. localizar ou, após autorização, criar a página da atividade específica;
+8. montar o registro usando somente fatos observáveis já disponíveis;
+9. escrever o registro na página da atividade;
+10. reler e validar a persistência, o conteúdo e a apresentação;
+11. corrigir somente o registro se a verificação detectar um defeito;
+12. emitir somente a saída permitida.
 
-Esta chain é sempre a última etapa. Ela não corrige, altera, reabre ou interfere no trabalho anterior. Se ainda houver qualquer ação principal, skill, agente, chain ou validação pendente, `auto-doc-execution-alest` ainda não pode ser iniciada.
+Esta chain não corrige, altera, reabre ou interfere no trabalho anterior. Se ainda houver qualquer ação principal, skill, agente, chain ou validação pendente, ainda não iniciar `auto-doc-execution-alest`.
 
 ## Silêncio obrigatório
 
@@ -47,9 +70,28 @@ Antes da mensagem final:
 - não anunciar plano ou progresso;
 - não mostrar chamadas ao Notion;
 - não pedir confirmação para ações normais;
-- não mostrar o resultado detalhado da tarefa principal;
+- não mostrar no chat o resultado detalhado da tarefa principal;
 - não incluir saudação, explicação, link, rodapé ou opções;
 - não expor raciocínio interno, cadeia de pensamento, prompts, tokens ou segredos.
+
+Fazer somente as perguntas expressamente permitidas nas seções de exceção desta skill.
+
+## Fonte dos dados, veracidade e segurança
+
+Usar exclusivamente fatos observáveis no prompt, na sessão, nas respostas de ferramentas e nos artefatos efetivamente produzidos. Não reabrir a tarefa principal para buscar um detalhe depois que a chain começar.
+
+Aplicar estas regras:
+
+- não inventar ação, resultado, duração, responsável, arquivo, página, commit, teste, métrica, decisão ou próxima ação;
+- distinguir `não executado`, `não aplicável`, `não observado` e `falhou`;
+- quando um dado relevante não estiver disponível, registrar `Não observado na execução` em vez de adivinhar;
+- registrar justificativas técnicas somente quando forem explícitas ou diretamente verificáveis; nunca registrar cadeia de pensamento privada;
+- separar fato observado de interpretação operacional;
+- usar nomes, títulos, caminhos, URLs, branches, hashes, números e horários somente quando realmente disponíveis;
+- nunca registrar token, senha, cookie, chave, cabeçalho de autenticação, segredo, conteúdo de variável sensível ou dado pessoal desnecessário;
+- sanitizar comandos e trechos de saída antes de registrá-los;
+- não colar logs brutos extensos; resumir o resultado, incluir as linhas decisivas e apontar o artefato ou link de origem quando disponível;
+- não usar frases vagas como `arquivos ajustados`, `testes feitos` ou `problema resolvido` sem informar quais arquivos, quais testes e qual evidência sustenta o resultado.
 
 ## Conexão com o Notion
 
@@ -152,31 +194,63 @@ Se houver duas ou mais páginas igualmente compatíveis, não escolher arbitrari
 
 Depois da resposta, usar somente a página escolhida.
 
-## Identidade da execução
+## Identidade, deduplicação e preservação
 
 Gerar um `Execution ID` estável usando os identificadores disponíveis da sessão e do prompt. Se nenhum identificador estável estiver disponível, gerar um UUID e reutilizá-lo durante todo o turno.
-
-Na página da atividade selecionada, antes de escrever:
-
-1. procurar esse `Execution ID`;
-2. se ele não existir, acrescentar um novo registro;
-3. se ele já existir, atualizar somente o registro correspondente;
-4. nunca duplicar a mesma execução.
 
 Identificar o autor nesta ordem:
 
 1. identidade explícita da sessão do Kiro Crew;
 2. identidade do usuário que enviou o prompt;
-3. `git config user.name`, quando houver repositório ativo;
+3. `git config user.name`, quando esse dado já estiver disponível no contexto da execução;
 4. `Autor não identificado`, sem abrir uma nova confirmação.
 
-## Formato obrigatório do registro
+Antes de escrever na página da atividade:
 
-### Cabeçalho com fundo roxo
+1. ler o conteúdo atual;
+2. procurar o `Execution ID` em todo o conteúdo;
+3. se ele não existir, acrescentar um novo registro sem alterar os anteriores;
+4. se ele já existir, atualizar somente o registro delimitado por esse identificador;
+5. nunca duplicar a mesma execução;
+6. nunca substituir o corpo inteiro da página;
+7. preservar blocos, links, menções, anexos, bancos de dados incorporados e registros anteriores;
+8. separar o novo registro do anterior com um divisor;
+9. manter a ordem cronológica já adotada pela página; se não houver padrão, acrescentar o novo registro ao final.
 
-Na página da atividade selecionada, criar um bloco **callout** com ícone `🟣` e fundo `purple_background`.
+## Padrão visual obrigatório
 
-Conteúdo:
+Usar blocos nativos do Notion sempre que estiverem disponíveis. Manter uma hierarquia simples, com espaço visual entre as regiões e sem excesso de cores.
+
+### Sistema visual
+
+Usar as cores somente com estes significados:
+
+| Elemento | Cor | Significado |
+|---|---|---|
+| Cabeçalho da execução | `purple_background` | identidade e limite do registro |
+| Contexto ou informação | `blue_background` | informação neutra relevante |
+| Sucesso | `green_background` | execução concluída com sucesso |
+| Parcial ou atenção | `yellow_background` | resultado parcial ou atenção necessária |
+| Bloqueio | `orange_background` | impedimento que exige ação |
+| Falha | `red_background` | execução sem o resultado esperado |
+| Metadados ou apêndice | `gray_background` | informação técnica secundária |
+
+Não usar cor como único indicador: sempre combinar cor, ícone e texto.
+
+### Camada 1 — resumo sempre visível
+
+Manter esta camada aberta e curta para leitura rápida.
+
+1. Inserir um divisor antes do registro, exceto quando ele for o primeiro conteúdo da página.
+2. Criar um callout com ícone `🟣` e fundo `purple_background`.
+3. Criar logo abaixo um callout de status com cor semântica.
+4. Adicionar a seção `📌 Resumo executivo`.
+5. Adicionar uma tabela compacta de metadados.
+6. Exibir `🎯 Objetivo`, `🧾 Escopo executado`, `✅ Resultado final` e `➡️ Próxima ação`.
+
+#### Callout principal
+
+Usar exatamente este formato:
 
 ```text
 📅 DD/MM/AAAA HH:mm (America/Sao_Paulo) · 👤 <autor> · 📝 <título resumido da tarefa>
@@ -186,39 +260,329 @@ O título deve:
 
 - resumir a tarefa em até 100 caracteres;
 - representar somente o que foi realmente executado;
-- não inventar resultado, projeto ou responsável.
+- não inventar resultado, projeto ou responsável;
+- usar verbo de ação e objeto concreto quando possível.
 
-Se uma ferramenta Markdown não preservar o fundo roxo, usar a ferramenta de blocos do Notion. Não degradar silenciosamente para um bloco sem o padrão solicitado.
+Se a ferramenta Markdown não preservar o fundo roxo, usar a ferramenta de blocos do Notion. Não degradar silenciosamente para um bloco sem o padrão solicitado.
 
-### Detalhamento abaixo do callout
+#### Callout de status
 
-Registrar somente fatos observáveis e verificáveis:
+Usar um destes formatos:
 
-1. `🎯 Objetivo` — solicitação original.
-2. `🧾 Escopo executado` — itens efetivamente cobertos e limites.
-3. `⚙️ Execução detalhada` — sequência das ações realizadas.
-4. `📦 Artefatos afetados` — arquivos, páginas, repositórios, commits ou recursos criados e alterados.
-5. `🧪 Validações` — testes, consultas, verificações e resultados objetivos.
-6. `🧭 Decisões e critérios` — decisões explícitas e justificativas verificáveis.
-7. `⚠️ Erros, bloqueios e pendências` — usar `Nenhum` somente quando for verdadeiro.
-8. `✅ Resultado final` — sucesso, parcial ou falha.
-9. `➡️ Próxima ação` — próxima etapa concreta ou `Nenhuma`.
-10. `🔑 Execution ID` — identificador usado para deduplicação.
+```text
+✅ Sucesso — <resultado objetivo em uma frase>
+🟡 Parcial — <o que foi concluído e o que ficou pendente>
+⛔ Bloqueado — <impedimento objetivo>
+❌ Falha — <resultado não alcançado e impacto imediato>
+```
 
-Não registrar cadeia de pensamento, raciocínio privado, tokens, cookies, credenciais, dados pessoais desnecessários ou logs brutos sensíveis.
+#### Resumo executivo
 
-## Verificação
+Escrever de três a oito bullets, sem repetir literalmente as seções detalhadas. Cobrir:
 
-Depois da escrita, reler a página da atividade e confirmar:
+- entrega principal;
+- mudança mais relevante;
+- evidência central;
+- impacto ou valor gerado;
+- pendência crítica, se houver.
+
+#### Metadados
+
+Incluir sempre:
+
+| Campo | Conteúdo |
+|---|---|
+| `Execution ID` | identificador estável |
+| `Status` | Sucesso, Parcial, Bloqueado ou Falha |
+| `Autor` | identidade encontrada pela ordem definida |
+| `Data e hora` | America/Sao_Paulo |
+
+Incluir somente quando observados e relevantes: início, fim, duração, projeto, cliente, repositório, branch, commit, pull request, ambiente e ferramentas principais. Não preencher por inferência.
+
+### Camada 2 — detalhes técnicos organizados
+
+Manter o resumo visível e colocar as seções extensas em toggles quando a conexão do Notion suportar esse bloco. Usar um toggle por seção. Se toggles não forem suportados, usar headings de nível 3 na mesma ordem; não omitir conteúdo.
+
+Usar esta ordem:
+
+1. `⚙️ Execução detalhada`
+2. `📦 Artefatos afetados`
+3. `🧪 Validações e evidências`
+4. `🧭 Decisões e critérios`
+5. `📊 Métricas e comparação`
+6. `⚠️ Erros, bloqueios, riscos e pendências`
+7. `📎 Apêndice técnico`
+
+Evitar toggles aninhados. Manter apenas um nível de expansão.
+
+## Regras de preenchimento detalhado
+
+### 🎯 Objetivo
+
+- resumir a solicitação original em uma a três frases;
+- registrar o resultado pretendido e o alvo da ação;
+- não copiar o prompt inteiro quando ele contiver contexto irrelevante ou sensível.
+
+### 🧾 Escopo executado
+
+Separar claramente:
+
+- `Incluído` — itens realmente tratados;
+- `Fora do escopo` — itens explicitamente excluídos, adiados ou não executados;
+- `Restrições` — limites técnicos, de permissão, tempo ou ferramenta observados.
+
+Não declarar `escopo concluído` sem enumerar os componentes relevantes.
+
+### ⚙️ Execução detalhada
+
+Registrar uma sequência numerada. Para cada passo relevante, informar:
+
+1. `Ação` — verbo e alvo concreto;
+2. `Como` — método, ferramenta ou operação utilizada;
+3. `Resultado observado` — efeito real da ação;
+4. `Evidência` — arquivo, página, consulta, saída, commit, PR, teste ou métrica disponível.
+
+Usar o formato:
+
+```text
+Passo N — <ação objetiva>
+- Alvo: <arquivo, página, serviço ou recurso>
+- Método: <operação ou ferramenta>
+- Resultado observado: <fato verificável>
+- Evidência: <referência disponível ou “Não observada na execução”>
+```
+
+Agrupar operações repetitivas somente quando forem equivalentes. Informar a quantidade total, a regra aplicada e as exceções. Não ocultar uma falha no meio de um agrupamento.
+
+### 📦 Artefatos afetados
+
+Usar tabela quando houver dois ou mais artefatos:
+
+| Tipo | Artefato ou localização | Operação | Alteração objetiva | Evidência |
+|---|---|---|---|---|
+| Arquivo, página, commit, PR, banco, serviço ou outro | nome, caminho ou URL | criado, alterado, consultado, movido, arquivado ou removido | resumo concreto | link, hash, ID ou resultado |
+
+Regras:
+
+- usar o caminho completo relativo ao repositório para arquivos;
+- informar branch e commit quando observados;
+- distinguir artefato consultado de artefato alterado;
+- informar contagens quando vários artefatos equivalentes forem afetados;
+- nunca afirmar que um artefato foi persistido sem evidência de escrita bem-sucedida.
+
+### 🧪 Validações e evidências
+
+Usar tabela:
+
+| Verificação | Método | Esperado | Observado | Status | Evidência |
+|---|---|---|---|---|---|
+| nome objetivo | comando, consulta, releitura ou inspeção | critério de aceite | resultado real | ✅ Passou, 🟡 Parcial, ❌ Falhou ou ⏭️ Não executada | saída, link ou referência |
+
+Registrar:
+
+- testes automatizados e manuais;
+- lint, build, validação de sintaxe ou schema;
+- releitura de arquivos e páginas;
+- comparação antes/depois;
+- verificações de persistência;
+- validações não executadas e o motivo observável.
+
+Nunca transformar ausência de erro visível em teste aprovado. Usar `Não executada` quando não houve validação explícita.
+
+### 🧭 Decisões e critérios
+
+Registrar somente decisões explícitas ou diretamente verificáveis. Para cada decisão, incluir:
+
+- decisão tomada;
+- critério objetivo;
+- impacto;
+- alternativa descartada, quando ela tiver sido realmente considerada;
+- responsável pela decisão, somente quando conhecido.
+
+Não registrar raciocínio privado. Documentar a justificativa comunicável e auditável, não a cadeia de pensamento.
+
+### 📊 Métricas e comparação
+
+Quando existirem números, usar:
+
+| Métrica | Antes | Depois | Variação | Fonte |
+|---|---:|---:|---:|---|
+
+Não criar estimativas. Se apenas um valor estiver disponível, registrar somente o valor observado e sua fonte.
+
+### ⚠️ Erros, bloqueios, riscos e pendências
+
+Separar em subtópicos:
+
+- `Erros encontrados` — sintoma, etapa, impacto e estado atual;
+- `Tentativas realizadas` — ação e resultado, sem despejar logs;
+- `Bloqueios` — causa conhecida e dependência para destravar;
+- `Riscos e limitações` — consequência possível e evidência;
+- `Pendências` — item concreto, motivo e próxima ação.
+
+Usar `Nenhum observado` somente depois de verificar cada subtópico. Não usar `Nenhum` para esconder informação indisponível.
+
+### ✅ Resultado final
+
+Classificar como `Sucesso`, `Parcial`, `Bloqueado` ou `Falha` e explicar:
+
+- o que foi entregue;
+- o que não foi entregue;
+- qual evidência sustenta o status;
+- qual impacto imediato foi observado.
+
+### ➡️ Próxima ação
+
+Registrar uma próxima ação concreta com verbo e objeto. Incluir responsável e prazo somente quando conhecidos. Usar `Nenhuma — execução concluída e validada` apenas quando isso for verdadeiro.
+
+### 📎 Apêndice técnico
+
+Incluir apenas quando agregar valor:
+
+- comandos sanitizados;
+- trechos curtos de saída decisiva;
+- commits e pull requests;
+- consultas executadas;
+- arquivos de evidência;
+- observações para reprodução.
+
+Limitar cada trecho de log ao mínimo necessário. Nunca incluir segredo ou log bruto extenso.
+
+## Template canônico do registro
+
+Traduzir a estrutura abaixo para blocos nativos do Notion:
+
+```markdown
+---
+
+[CALLOUT roxo · 🟣]
+📅 <data e hora> · 👤 <autor> · 📝 <título>
+
+[CALLOUT semântico · ícone do status]
+<status> — <resultado objetivo>
+
+## 📌 Resumo executivo
+- <entrega principal>
+- <mudança relevante>
+- <evidência central>
+- <impacto>
+- <pendência crítica, se houver>
+
+| Campo | Conteúdo |
+|---|---|
+| Execution ID | <id> |
+| Status | <status> |
+| Autor | <autor> |
+| Data e hora | <timestamp> |
+
+### 🎯 Objetivo
+<objetivo verificável>
+
+### 🧾 Escopo executado
+- Incluído: <itens>
+- Fora do escopo: <itens>
+- Restrições: <itens>
+
+### ✅ Resultado final
+<entrega, lacunas, evidência e impacto>
+
+### ➡️ Próxima ação
+<ação concreta ou nenhuma>
+
+<toggle title="⚙️ Execução detalhada">
+<passos numerados com alvo, método, resultado e evidência>
+</toggle>
+
+<toggle title="📦 Artefatos afetados">
+<tabela de artefatos>
+</toggle>
+
+<toggle title="🧪 Validações e evidências">
+<tabela de validações>
+</toggle>
+
+<toggle title="🧭 Decisões e critérios">
+<decisões auditáveis>
+</toggle>
+
+<toggle title="📊 Métricas e comparação">
+<tabela ou “Nenhuma métrica observada”>
+</toggle>
+
+<toggle title="⚠️ Erros, bloqueios, riscos e pendências">
+<subtópicos separados>
+</toggle>
+
+<toggle title="📎 Apêndice técnico">
+<evidências técnicas sanitizadas>
+</toggle>
+
+🔑 Execution ID: <id>
+```
+
+Manter o `Execution ID` visível nos metadados e como marcador final do registro, mas garantir que a busca de deduplicação reconheça ambos como partes do mesmo registro e nunca crie uma segunda execução por causa dessa repetição estrutural.
+
+## Granularidade esperada
+
+Exemplo insuficiente:
+
+```text
+Atualizei os arquivos e rodei os testes. Tudo certo.
+```
+
+Exemplo aceitável:
+
+```text
+Passo 3 — Validar a documentação gerada
+- Alvo: docs/servico-exemplo-a/README.md e docs/servico-exemplo-a/diagramas/
+- Método: validação de sintaxe seguida de releitura dos artefatos gerados
+- Resultado observado: 12 artefatos verificados; nenhuma referência quebrada encontrada
+- Evidência: saída da validação registrada no turno e commit abc1234
+```
+
+Não alongar artificialmente tarefas simples. Mesmo em uma execução curta, informar objetivo, ação concreta, alvo, resultado, validação, status e próxima ação. Em execuções complexas, usar as tabelas e toggles para preservar profundidade sem prejudicar a leitura.
+
+## Verificação obrigatória
+
+Depois da escrita, reler a página da atividade e validar todos os grupos abaixo.
+
+### Roteamento e preservação
 
 - a página está dentro do hub `Execuções`;
 - o título representa a atividade correta;
 - a atividade não estava marcada como concluída, cancelada ou arquivada;
-- o callout tem fundo roxo;
-- data, autor e título estão presentes;
-- as seções detalhadas estão presentes;
-- o `Execution ID` aparece uma única vez;
-- o conteúdo anterior foi preservado.
+- nenhum registro anterior foi removido ou alterado indevidamente;
+- o novo registro está separado visualmente dos anteriores.
+
+### Identidade e idempotência
+
+- data, hora, autor, título e status estão presentes;
+- o mesmo `Execution ID` pertence a um único registro;
+- não existe segunda cópia da execução;
+- uma atualização idempotente alterou somente o registro correspondente.
+
+### Conteúdo e evidência
+
+- o resumo executivo permite compreender o resultado sem abrir os detalhes;
+- objetivo, escopo, resultado e próxima ação estão visíveis;
+- os passos informam alvo, método, resultado e evidência;
+- os artefatos distinguem leitura de alteração;
+- as validações mostram esperado, observado e status;
+- erros, bloqueios, riscos e pendências não foram omitidos;
+- nenhuma afirmação excede a evidência disponível;
+- nenhum segredo ou dado sensível foi registrado.
+
+### Apresentação visual
+
+- o callout principal tem fundo roxo;
+- o callout de status usa cor, ícone e texto coerentes;
+- a hierarquia de headings está correta;
+- tabelas têm cabeçalhos e células legíveis;
+- toggles não estão aninhados;
+- não há seção vazia, bloco órfão ou repetição desnecessária;
+- o conteúdo permanece escaneável, com detalhes extensos recolhidos quando possível.
+
+Se a verificação detectar falha de conteúdo ou apresentação, corrigir somente o novo registro e reler novamente. Não retomar a tarefa principal.
 
 Se a escrita ou a leitura de confirmação falhar por erro de conexão, usar exclusivamente a mensagem de falha de conexão com a sugestão `kirocrew restart`.
 
