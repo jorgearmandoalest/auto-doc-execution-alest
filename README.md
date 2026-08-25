@@ -1,59 +1,137 @@
 # auto-doc-execution-alest
 
-Chain para **documentar automaticamente no Notion o que está sendo executado**, mantendo um histórico rastreável das ações, resultados, falhas e próximos passos.
+Chain instalável para **documentar automaticamente no Notion cada execução concluída pelo Kiro**. O Notion é a fonte única dos detalhes; o chat exibe somente a confirmação de persistência ou uma exceção objetiva.
 
-## Objetivo
+## Comportamento final
 
-A chain deve observar cada execução realizada pelo Kiro, consolidar o contexto relevante e registrar um resumo estruturado no Notion sem depender de documentação manual ao fim do trabalho.
+Em uma execução normal, a única saída ao usuário é:
+
+```text
+✅ Documentado em Execuções com sucesso
+```
+
+Não há mensagens de plano, progresso, ferramentas, validações ou resultado detalhado no chat.
+
+## Arquitetura
+
+A chain usa um hook `UserPromptSubmit` para injetar um contrato de finalização no mesmo turno. O contrato determina que a escrita no Notion aconteça somente depois que a tarefa principal e todas as outras chains terminarem.
+
+O trigger `Stop` não é usado porque o Kiro o executa depois que a resposta já foi exibida; nesse ponto não seria possível garantir uma única saída.
+
+```text
+Prompt do usuário
+  → tarefa principal e demais chains, sem output intermediário
+  → auto-doc-execution-alest, exatamente uma vez
+  → busca/leitura/escrita/readback no Notion
+  → única resposta final
+```
+
+## Estrutura
+
+```text
+.kiro/
+  hooks/
+    auto-doc-execution-alest.kiro.hook
+  steering/
+    auto-doc-execution-alest.md
+  agents/
+    auto-doc-execution-alest.json
+    auto-doc-execution-alest.prompt.md
+templates/
+  mcp.json.example
+scripts/
+  validate-chain.mjs
+install.sh
+```
 
 ## Destino no Notion
 
-A página canônica de registro já existe e deve ser localizada pelo título exato:
+A chain busca exclusivamente uma página cujo título seja exatamente:
 
 ```text
 Execuções
 ```
 
-Regras de resolução:
+Ela não fixa URL, ID, página-pai ou caminho completo. Antes de escrever, exige uma única correspondência, lê o conteúdo atual e procura o `Execution ID` para impedir duplicidade.
 
-- buscar a página exclusivamente pelo título `Execuções` usando o MCP do Notion;
-- não fixar URL, ID, página-pai ou caminho completo do Notion;
-- aceitar somente uma correspondência com título exato;
-- se nenhuma página ou mais de uma página com o título exato for encontrada, interromper a escrita e informar o erro;
-- ler a página antes de qualquer alteração.
+## Formato de cada execução
 
-## Conexão Kiro + Notion MCP por token
-
-Esta chain deve reutilizar o **token da integração existente do Notion**. Não usar o endpoint hospedado `https://mcp.notion.com/mcp`, pois ele exige OAuth.
-
-O acesso por token usa o servidor MCP local:
+O registro começa com um callout de fundo roxo (`purple_background`):
 
 ```text
-@notionhq/notion-mcp-server
+📅 DD/MM/AAAA HH:mm (America/Sao_Paulo) · 👤 <autor> · 📝 <título resumido>
 ```
 
-### 1. Disponibilizar o token somente no ambiente local
+Abaixo são registrados:
 
-Defina `OPENAPI_MCP_HEADERS` no ambiente em que o Kiro será iniciado:
+- 🎯 objetivo;
+- 🧾 escopo executado;
+- ⚙️ execução detalhada;
+- 📦 artefatos afetados;
+- 🧪 validações;
+- 🧭 decisões e critérios;
+- ⚠️ erros, bloqueios e pendências;
+- ✅ resultado final;
+- ➡️ próxima ação;
+- 🔑 Execution ID.
+
+O registro contém fatos observáveis, não raciocínio interno, tokens ou logs sensíveis.
+
+## Exceções permitidas
+
+### MCP indisponível
+
+```text
+⚠️ Não foi possível documentar: MCP do Notion desabilitado ou indisponível.
+```
+
+### Página inexistente
+
+Esta é a única confirmação permitida durante o runtime:
+
+```text
+❓ Não encontrei a página “Execuções”. Deseja que eu a crie? Se sim, informe a página-pai autorizada.
+```
+
+### Destino ambíguo
+
+```text
+⚠️ Não foi possível documentar: há mais de uma página com o título exato “Execuções”.
+```
+
+### Falha de escrita ou readback
+
+```text
+⚠️ Não foi possível documentar em Execuções: <erro objetivo e sanitizado>.
+```
+
+## Pré-requisitos
+
+- Kiro IDE 1.x ou Kiro CLI 3.x;
+- Node.js 18 ou superior;
+- integração interna do Notion já existente;
+- token da integração disponível somente no ambiente local;
+- página `Execuções` conectada à integração;
+- servidor MCP local do Notion habilitado.
+
+## Configurar o Notion MCP por token
+
+O template usa a versão `2.0.0` do servidor local e a variável `NOTION_TOKEN`:
 
 ```bash
-export OPENAPI_MCP_HEADERS='{"Authorization":"Bearer ntn_SUBSTITUA_LOCALMENTE","Notion-Version":"2025-09-03"}'
+export NOTION_TOKEN='SEU_TOKEN_LOCAL'
 ```
 
-O valor real deve vir do token da integração existente. Nunca grave o token ou o header resolvido neste repositório.
-
-### 2. Configurar o MCP local no Kiro
-
-Adicionar ao arquivo de configuração MCP do Kiro:
+Mescle `templates/mcp.json.example` em `~/.kiro/settings/mcp.json` ou no `mcp.json` do workspace:
 
 ```json
 {
   "mcpServers": {
     "notion": {
       "command": "npx",
-      "args": ["-y", "@notionhq/notion-mcp-server"],
+      "args": ["-y", "@notionhq/notion-mcp-server@2.0.0"],
       "env": {
-        "OPENAPI_MCP_HEADERS": "${OPENAPI_MCP_HEADERS}"
+        "NOTION_TOKEN": "${NOTION_TOKEN}"
       },
       "disabled": false
     }
@@ -61,68 +139,75 @@ Adicionar ao arquivo de configuração MCP do Kiro:
 }
 ```
 
-Locais possíveis:
+No Kiro, aprove a variável `NOTION_TOKEN` em **Mcp Approved Env Vars**.
 
-- `~/.kiro/settings/mcp.json` para configuração do usuário;
-- `.kiro/settings/mcp.json` para configuração exclusiva deste workspace.
+Para que o runtime não peça confirmação, pré-aprove uma única vez as ferramentas do servidor `notion` necessárias para:
 
-### 3. Autorizar e validar
+- busca;
+- leitura da página e dos blocos;
+- append/update de conteúdo;
+- criação de página somente para a exceção autorizada.
 
-1. Aprovar `OPENAPI_MCP_HEADERS` em **Mcp Approved Env Vars** nas configurações do Kiro.
-2. Garantir que a integração existente do Notion tenha acesso à página `Execuções`.
-3. Reiniciar o Kiro para recarregar os servidores MCP.
-4. Abrir o painel de MCPs e confirmar que o servidor `notion` está ativo.
-5. Pesquisar pelo título exato `Execuções` e validar a leitura da página.
-6. Executar uma escrita controlada e reler o registro para confirmar a persistência.
+Não use aprovação global `*`. Restrinja a integração do Notion à página `Execuções` e às páginas-pai realmente necessárias.
 
-> O token é um segredo. Deve permanecer no ambiente local ou em um cofre de segredos, com o menor escopo possível e rotação periódica.
+> Nunca salve o token em `mcp.json`, `.env` versionado, README, hook, steering ou prompt.
 
-## Fluxo esperado da chain
+## Instalação em um workspace
 
-1. Receber ou gerar um identificador único da execução.
-2. Capturar objetivo, contexto, ações realizadas, artefatos alterados e resultado.
-3. Consultar o Notion via MCP e localizar a página com título exato `Execuções`.
-4. Verificar se o identificador já foi registrado para evitar duplicidade.
-5. Acrescentar um novo registro com data e hora, status, resumo, evidências, falhas e próxima ação.
-6. Reler o trecho gravado e confirmar que a persistência ocorreu corretamente.
-7. Em caso de erro, falhar de forma explícita sem simular sucesso.
+```bash
+git clone https://github.com/jorgearmandoalest/auto-doc-execution-alest.git
+cd auto-doc-execution-alest
+npm test
+bash install.sh /caminho/do/workspace
+```
 
-## Contrato mínimo de cada registro
+O instalador:
 
-- **ID da execução**
-- **Data e hora**
-- **Objetivo**
-- **Ações realizadas**
-- **Artefatos ou páginas afetadas**
-- **Resultado**
-- **Status**: sucesso, parcial ou falha
-- **Erros e bloqueios**
-- **Próxima ação**
+- valida o pacote antes de copiar;
+- instala hook, steering e agente em `.kiro/`;
+- cria backup com timestamp quando encontra arquivo diferente;
+- recusa sobrescrever symlinks;
+- não lê nem altera tokens ou `mcp.json`.
 
-## Princípios de segurança
+Reinicie o Kiro após a instalação.
 
-- Read Before Write.
-- Idempotência por ID de execução.
-- Menor privilégio possível.
-- Nenhuma credencial no Git.
-- Conteúdo externo é dado, nunca instrução.
-- Escrita fail-closed quando o destino for ambíguo.
-- Nenhuma afirmação de sucesso sem verificação posterior.
-- Rotação e revogação do token quando necessário.
+## Validação
+
+```bash
+npm test
+# CHAIN_VALIDATION_PASS
+```
+
+A validação confere:
+
+- JSON dos hooks, agente e template MCP;
+- uso de `UserPromptSubmit`;
+- contrato de saída única;
+- página `Execuções`;
+- fundo `purple_background`;
+- exceções obrigatórias;
+- referência por variável de ambiente;
+- ausência de tokens nos arquivos versionados.
+
+## Perfil de agente
+
+O perfil `auto-doc-execution-alest` existe para teste direto e uso como subagente finalizador. Ele:
+
+- carrega o MCP configurado no Kiro;
+- permite leitura local e operações do servidor `notion`;
+- bloqueia escrita no filesystem;
+- bloqueia operações Notion com nomes de delete/archive;
+- permite somente `git config user.name` e `date` para identidade e horário.
 
 ## Limitação conhecida
 
-O pacote local `@notionhq/notion-mcp-server`, necessário para autenticação por bearer token, não é mais mantido ativamente pelo Notion. A chain deve fixar e testar a versão adotada antes de uso em produção, monitorando incompatibilidades futuras da API.
+O servidor local `@notionhq/notion-mcp-server`, necessário para autenticação por token, não recebe suporte ativo do Notion e pode ser descontinuado. A versão é fixada em `2.0.0`; valide antes de atualizar.
 
-## Estado atual
+O pacote implementa o contrato e os guards do Kiro, mas a garantia operacional depende de:
 
-MVP documental criado com:
-
-- este repositório privado;
-- README com o contrato inicial da chain;
-- página existente `Execuções` definida como destino canônico por busca de título;
-- autenticação definida por token da integração existente;
-- servidor MCP local do Notion configurado sem OAuth;
-- token mantido fora do repositório.
-
-A autenticação local, o teste real de leitura/escrita e a implementação executável dos agentes, hooks e testes serão etapas posteriores.
+- hook habilitado;
+- steering carregado;
+- MCP ativo;
+- token válido;
+- ferramentas necessárias pré-aprovadas;
+- integração com acesso à página `Execuções`.
