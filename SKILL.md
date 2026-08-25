@@ -1,6 +1,6 @@
 ---
 name: auto-doc-execution-alest
-description: Documenta silenciosamente no Notion cada execução concluída pelo Kiro Crew, sempre como última etapa do prompt.
+description: Documenta silenciosamente no Notion cada execução concluída pelo Kiro Crew, roteando-a para a atividade em andamento correta como última etapa do prompt.
 always: true
 ---
 
@@ -14,7 +14,12 @@ O Notion já deve estar configurado no gateway. Esta chain nunca instala, config
 
 ## Objetivo
 
-Depois de concluir a solicitação principal e todas as demais skills, agentes ou chains do turno, documentar a execução na página `Execuções` do Notion.
+Depois de concluir a solicitação principal e todas as demais skills, agentes ou chains do turno, localizar dentro da página `Execuções` a página específica da atividade em andamento e documentar a execução nela.
+
+A página `Execuções` é somente o hub. Os registros detalhados devem ficar em páginas filhas de atividades específicas, como:
+
+- `Documentação do serviço OSB — Member`;
+- `Documentação do serviço OSB — Login`.
 
 O Notion é a fonte única dos detalhes. No chat, não mostrar o resultado da tarefa, plano, progresso, chamadas de ferramenta ou resumo. Mostrar somente a mensagem final definida neste contrato.
 
@@ -26,10 +31,12 @@ Em todo prompt do usuário:
 2. concluir todas as outras skills, agentes e chains;
 3. confirmar que não resta ação, ferramenta ou validação da tarefa principal;
 4. executar `auto-doc-execution-alest` exatamente uma vez;
-5. documentar no Notion;
-6. verificar por leitura que o registro foi persistido;
-7. não executar nenhuma ação da tarefa principal depois da documentação;
-8. emitir somente a saída permitida.
+5. localizar o hub `Execuções`;
+6. localizar ou, após autorização, criar a página da atividade específica;
+7. documentar nessa página de atividade;
+8. verificar por leitura que o registro foi persistido;
+9. não executar nenhuma ação da tarefa principal depois da documentação;
+10. emitir somente a saída permitida.
 
 Esta chain é sempre a última etapa. Ela não corrige, altera, reabre ou interfere no trabalho anterior.
 
@@ -64,7 +71,7 @@ Se não for possível usar a conexão existente por qualquer motivo — MCP ause
 ⚠️ Não consegui conectar ao Notion. Reinicie o gateway com `kirocrew restart` e tente novamente.
 ```
 
-## Localização da página
+## Localização do hub
 
 Buscar pelo título exato, incluindo o acento:
 
@@ -74,39 +81,85 @@ Execuções
 
 Regras:
 
-- localizar somente pelo título exato `Execuções`;
+- localizar o hub somente pelo título exato `Execuções`;
 - não usar URL, ID, página-pai ou caminho completo fixado nesta chain;
-- aceitar apenas uma correspondência exata;
-- ler a página antes de escrever;
-- preservar todo o conteúdo anterior;
-- acrescentar a execução no final da página;
-- nunca substituir o corpo inteiro da página.
+- aceitar apenas uma correspondência exata para o hub;
+- ler o hub e enumerar suas páginas filhas antes de escrever;
+- nunca registrar a execução diretamente no corpo do hub;
+- nunca substituir o corpo inteiro de nenhuma página.
 
-### Página inexistente
+### Hub inexistente
 
-Se não existir uma página com o título exato `Execuções`, esta é a única pergunta permitida:
+Se não existir uma página com o título exato `Execuções`, fazer somente esta pergunta:
 
 ```text
 ❓ Não encontrei a página “Execuções”. Deseja que eu a crie? Se sim, informe a página-pai autorizada.
 ```
 
-Não criar a página sem autorização afirmativa e página-pai válida. Depois da autorização, criar a página, registrar a execução, verificar a persistência e usar a saída normal de sucesso.
+Não criar o hub sem autorização afirmativa e página-pai válida.
 
-### Página ambígua
+### Hub ambíguo
 
-Se houver mais de uma correspondência exata, não escolher arbitrariamente e não escrever. Responder somente:
+Se houver mais de uma página com o título exato `Execuções`, não escolher arbitrariamente e não escrever. Responder somente:
 
 ```text
 ⚠️ Não documentei a execução porque encontrei mais de uma página com o título exato “Execuções”.
 ```
 
+## Localização da atividade em andamento
+
+Depois de localizar o hub `Execuções`, examinar as páginas filhas e encontrar a atividade relacionada à tarefa que acabou de ser executada.
+
+### Critérios de correspondência
+
+1. Extrair da tarefa os identificadores relevantes: tipo de atividade, projeto, cliente, sistema, serviço, módulo e objetivo.
+2. Comparar esses identificadores com os títulos das páginas filhas.
+3. Priorizar títulos que representem a mesma atividade específica, não apenas o mesmo projeto amplo.
+4. Ler as candidatas mais compatíveis para confirmar o contexto.
+5. Rejeitar páginas cujo conteúdo declare explicitamente que a atividade foi concluída, cancelada ou arquivada.
+6. Não escolher uma página apenas por ser a mais recente.
+7. Não registrar em uma atividade não relacionada apenas porque ela já existe.
+8. Aceitar automaticamente somente quando houver uma única página claramente compatível e ainda em andamento.
+
+Exemplos:
+
+- uma tarefa sobre o serviço `Member` deve usar `Documentação do serviço OSB — Member`;
+- uma tarefa sobre o serviço `Login` deve usar `Documentação do serviço OSB — Login`;
+- uma tarefa sobre `Login` nunca deve ser registrada na página de `Member`.
+
+### Nenhuma atividade compatível
+
+Se não houver uma página de atividade em andamento compatível, sugerir um título objetivo a partir da tarefa atual e fazer a única pergunta de criação permitida:
+
+```text
+❓ Não encontrei uma atividade em andamento para esta execução. Deseja que eu crie “<título sugerido>” dentro de “Execuções”?
+```
+
+Regras:
+
+- não criar sem autorização afirmativa;
+- criar a nova página diretamente dentro do hub `Execuções`;
+- usar o título aprovado pelo usuário;
+- depois da criação, registrar a execução e verificar a persistência;
+- não pedir página-pai, pois o pai já é o hub `Execuções`.
+
+### Mais de uma atividade compatível
+
+Se houver duas ou mais páginas igualmente compatíveis, não escolher arbitrariamente. Responder somente:
+
+```text
+❓ Encontrei mais de uma atividade compatível dentro de “Execuções”: <títulos>. Qual devo usar?
+```
+
+Depois da resposta, usar somente a página escolhida.
+
 ## Identidade da execução
 
 Gerar um `Execution ID` estável usando os identificadores disponíveis da sessão e do prompt. Se nenhum identificador estável estiver disponível, gerar um UUID e reutilizá-lo durante todo o turno.
 
-Antes de escrever:
+Na página da atividade selecionada, antes de escrever:
 
-1. procurar esse `Execution ID` na página;
+1. procurar esse `Execution ID`;
 2. se ele não existir, acrescentar um novo registro;
 3. se ele já existir, atualizar somente o registro correspondente;
 4. nunca duplicar a mesma execução.
@@ -122,7 +175,7 @@ Identificar o autor nesta ordem:
 
 ### Cabeçalho com fundo roxo
 
-Criar um bloco **callout** com ícone `🟣` e fundo `purple_background`.
+Na página da atividade selecionada, criar um bloco **callout** com ícone `🟣` e fundo `purple_background`.
 
 Conteúdo:
 
@@ -157,21 +210,23 @@ Não registrar cadeia de pensamento, raciocínio privado, tokens, cookies, crede
 
 ## Verificação
 
-Depois da escrita, reler o registro e confirmar:
+Depois da escrita, reler a página da atividade e confirmar:
 
-- título correto da página;
-- callout com fundo roxo;
-- data, autor e título presentes;
-- seções detalhadas presentes;
-- `Execution ID` presente uma única vez;
-- conteúdo anterior preservado.
+- a página está dentro do hub `Execuções`;
+- o título representa a atividade correta;
+- a atividade não estava marcada como concluída, cancelada ou arquivada;
+- o callout tem fundo roxo;
+- data, autor e título estão presentes;
+- as seções detalhadas estão presentes;
+- o `Execution ID` aparece uma única vez;
+- o conteúdo anterior foi preservado.
 
 Se a escrita ou a leitura de confirmação falhar por erro de conexão, usar exclusivamente a mensagem de falha de conexão com a sugestão `kirocrew restart`.
 
 Se a conexão funcionar, mas a gravação for rejeitada por permissão ou validação, responder somente:
 
 ```text
-⚠️ Conectei ao Notion, mas não consegui registrar a execução em “Execuções”.
+⚠️ Conectei ao Notion, mas não consegui registrar a execução em “<título da atividade>”.
 ```
 
 ## Saída normal única
@@ -179,7 +234,7 @@ Se a conexão funcionar, mas a gravação for rejeitada por permissão ou valida
 Somente depois da escrita e da verificação bem-sucedidas, responder exatamente:
 
 ```text
-✅ Documentado em Execuções com sucesso
+✅ Documentado em <título da atividade> com sucesso
 ```
 
-Não acrescentar nenhuma outra palavra ou elemento à resposta.
+Substituir `<título da atividade>` pelo título real da página usada ou criada. Não acrescentar nenhuma outra palavra ou elemento à resposta.
