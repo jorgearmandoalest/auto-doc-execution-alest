@@ -1,6 +1,6 @@
 ---
 name: auto-doc-execution-alest
-description: Documenta no Notion cada turno concluído pelo Kiro Crew, com registro mínimo sempre e relatório completo somente quando houver efeito relevante. É carregada deterministicamente pelo hook UserPromptSubmit.
+description: Documenta no Notion cada turno concluído pelo Kiro Crew, sempre na página da atividade em andamento. É carregada deterministicamente pelo hook UserPromptSubmit.
 always: false
 ---
 
@@ -8,53 +8,22 @@ always: false
 
 ## Contrato de disparo
 
-- O único gatilho desta chain é o hook nativo do Kiro Crew definido em `hook.json`.
-- O hook usa o evento `UserPromptSubmit`, sem matcher e sem comando de shell, e injeta a skill `$auto-doc-execution-alest` em todo prompt submetido.
+- O gatilho desta chain é o hook nativo do Kiro Crew definido em `hook.json` (evento `UserPromptSubmit`).
+- O runtime do Kiro Crew só executa hooks via o campo `command` (subprocesso real via `/bin/sh -c`); não existe suporte a um campo `skills` declarativo. O hook aponta `command` para `bin/auto-doc-execution-alest-hook`, um script que imprime no stdout a diretiva `Load skills: $auto-doc-execution-alest` mais a instrução de executar o contrato completo desta skill como última etapa do turno — esse stdout é injetado como contexto no início do próximo turno.
 - Não depender de ativação semântica, correspondência da descrição ou `always: true`.
 - Tratar cada ocorrência real de `UserPromptSubmit` como um turno independente, inclusive prompts submetidos por fluxos iterativos ou loops.
-- O hook apenas garante o carregamento da skill no início do turno; a persistência no Notion continua sendo executada no fim do turno.
+- O hook apenas garante o carregamento da diretiva no início do turno; a persistência no Notion continua sendo executada pelo agente no fim do turno.
 - Mesmo se uma instalação antiga causar carregamento duplicado, executar a autodocumentação exatamente uma vez por prompt e usar um único `Execution ID`.
+- Rede de segurança: um segundo hook (`hook-stop.json`, evento `Stop`, script `bin/auto-doc-execution-alest-stop-fallback`) roda depois que a resposta final do turno já foi enviada. Ele não pode reabrir o turno nem fazer o agente executar a skill retroativamente — apenas verifica se a saída esperada desta skill apareceu no texto final e, se não apareceu, grava um registro local em `~/.kiro/crew/auto-doc-execution-alest/missed-turns.jsonl` para visibilidade do gap. Esse fallback nunca escreve no Notion.
 
 ## Contrato essencial
 
 - Usar exclusivamente a conexão do Notion já disponível no gateway do Kiro Crew.
 - Nunca instalar, configurar, autenticar ou alterar o MCP do Notion.
 - Concluir a tarefa principal antes de iniciar a autodocumentação.
-- Registrar todo turno: **registro mínimo sempre; relatório completo somente quando houver efeito relevante**.
-- Tratar o relatório completo como extensão do registro mínimo, nunca como segundo registro da mesma execução.
+- Registrar todo turno na página da atividade em andamento — não existe distinção entre registro mínimo e relatório completo; todo turno usa o mesmo destino e o mesmo template.
 - Tratar a autodocumentação como pós-condição não bloqueante: sua falha nunca pode falhar, reverter, repetir, reabrir ou alterar o status da tarefa principal.
 - Manter o Notion como fonte dos detalhes e limitar o chat à confirmação de persistência ou às exceções previstas nesta skill.
-
-## Classificação determinística
-
-Antes de escrever, classificar a execução como `MINIMO` ou `COMPLETO`. Não decidir apenas por percepção subjetiva de importância.
-
-Classificar como `COMPLETO` quando **pelo menos um** destes critérios for observado:
-
-1. **Mutação persistente:** criação, edição, exclusão, arquivamento, restauração, movimentação ou alteração de estado em página, database, arquivo, código, configuração, repositório ou serviço externo.
-2. **Git e entrega:** branch, commit, push, merge, pull request, tag, release, deploy, publicação ou rollback.
-3. **Ação externa:** e-mail, mensagem, convite, permissão, compartilhamento, submissão, agendamento ou qualquer efeito sobre outra pessoa ou sistema.
-4. **Artefato produzido:** documento, relatório, planilha, apresentação, imagem, código, configuração, rascunho persistido ou outro entregável salvo.
-5. **Automação executada:** playbook, chain ou skill que produziu artefato, alterou estado ou realizou ação externa.
-6. **Decisão relevante:** aprovação, rejeição, mudança de abordagem, regra, escopo, prioridade ou restrição que altere o trabalho seguinte.
-7. **Achado material:** auditoria, investigação, teste ou validação que produziu evidência, conclusão, falha, risco, bloqueio ou pendência acionável.
-
-Classificar como `MINIMO` somente quando nenhum critério de `COMPLETO` ocorrer. Exemplos:
-
-- pergunta e resposta informativa;
-- tradução, explicação ou orientação sem persistência;
-- busca, leitura ou resumo sem novo achado material;
-- brainstorming sem decisão registrada;
-- esclarecimento ou conversa sem alteração de estado.
-
-Regras de desempate:
-
-- leitura ou busca isolada não é efeito relevante;
-- uso de ferramenta de leitura não torna o turno `COMPLETO` por si só;
-- se houver qualquer critério positivo, usar `COMPLETO`;
-- se a evidência for insuficiente, usar `MINIMO` e registrar `Nenhum efeito relevante observado`;
-- nunca elevar para `COMPLETO` apenas para preencher o template detalhado;
-- nunca reduzir para `MINIMO` uma mutação, decisão, falha ou achado material observado.
 
 ## Ordem obrigatória
 
@@ -66,14 +35,13 @@ Em cada disparo de `UserPromptSubmit`:
 4. confirmar internamente que não resta ação da tarefa principal;
 5. iniciar a autodocumentação exatamente uma vez;
 6. gerar ou reutilizar o `Execution ID` do turno;
-7. classificar o turno como `MINIMO` ou `COMPLETO`;
-8. localizar o hub `Execuções` pelo título exato;
-9. resolver o destino conforme a classificação;
-10. ler antes de escrever e deduplicar pelo `Execution ID`;
-11. persistir o registro correspondente;
-12. reler e validar somente a autodocumentação;
-13. corrigir apenas o novo registro, quando necessário;
-14. emitir somente a saída permitida.
+7. localizar o hub `Execuções` pelo título exato;
+8. resolver a página da atividade em andamento (ver "Destino do registro");
+9. ler antes de escrever e deduplicar pelo `Execution ID`;
+10. persistir o registro;
+11. reler e validar somente a autodocumentação;
+12. corrigir apenas o novo registro, quando necessário;
+13. emitir somente a saída permitida.
 
 Depois que a autodocumentação começar, não iniciar outra skill, agente, chain ou investigação e não retomar a tarefa principal.
 
@@ -119,32 +87,18 @@ Se a conexão estiver ausente, desconectada, sem autenticação, sem resposta ou
 Se o hub não existir, perguntar somente:
 
 ```text
-❓ Não encontrei a página “Execuções”. Deseja que eu a crie? Se sim, informe a página-pai autorizada.
+❓ Não encontrei a página "Execuções". Deseja que eu a crie? Se sim, informe a página-pai autorizada.
 ```
 
 Se houver mais de um hub exato, responder somente:
 
 ```text
-⚠️ A tarefa principal foi concluída, mas não documentei a execução porque encontrei mais de uma página com o título exato “Execuções”.
+⚠️ A tarefa principal foi concluída, mas não documentei a execução porque encontrei mais de uma página com o título exato "Execuções".
 ```
 
-## Destino de `MINIMO`
+## Destino do registro
 
-Usar uma única página filha do hub com o título exato `Registro mínimo`.
-
-Essa página é o ledger compacto dos turnos sem efeito relevante. Não criar uma página por conversa e não misturar esses registros com relatórios completos de atividades.
-
-Se a página não existir, perguntar somente:
-
-```text
-❓ Não encontrei a página “Registro mínimo” dentro de “Execuções”. Deseja que eu a crie?
-```
-
-Criar somente após autorização afirmativa, diretamente dentro de `Execuções`. Se houver mais de uma filha com esse título, não escolher arbitrariamente e informar a ambiguidade.
-
-## Destino de `COMPLETO`
-
-Usar a página filha da atividade específica em andamento.
+Todo turno — sem distinção de tipo — usa a página filha da atividade específica em andamento.
 
 1. Extrair tipo de atividade, projeto, cliente, sistema, serviço, módulo e objetivo.
 2. Comparar com os títulos das páginas filhas.
@@ -156,13 +110,13 @@ Usar a página filha da atividade específica em andamento.
 Se não houver atividade compatível, sugerir um título e perguntar somente:
 
 ```text
-❓ Não encontrei uma atividade em andamento para esta execução. Deseja que eu crie “<título sugerido>” dentro de “Execuções”?
+❓ Não encontrei uma atividade em andamento para esta execução. Deseja que eu crie "<título sugerido>" dentro de "Execuções"?
 ```
 
 Se houver mais de uma atividade igualmente compatível, perguntar somente:
 
 ```text
-❓ A tarefa principal foi concluída. Encontrei mais de uma atividade compatível dentro de “Execuções”: <títulos>. Qual devo usar para documentá-la?
+❓ A tarefa principal foi concluída. Encontrei mais de uma atividade compatível dentro de "Execuções": <títulos>. Qual devo usar para documentá-la?
 ```
 
 ## Identidade, deduplicação e preservação
@@ -175,43 +129,24 @@ Se houver mais de uma atividade igualmente compatível, perguntar somente:
 - Preservar registros anteriores, blocos, links, menções, anexos, databases incorporados e ordem cronológica.
 - Separar registros com divisor e acrescentar ao final quando não houver padrão diferente.
 
-## Template de `MINIMO`
+## Formato do callout de cabeçalho
 
-Manter compacto e sempre visível, sem toggles e sem seções extensas:
+Todo registro abre com um bloco callout de cabeçalho, sempre no mesmo formato — na página da atividade selecionada:
 
-```markdown
----
+- bloco tipo `callout`;
+- ícone: emoji `🟣`;
+- cor de fundo: `purple_background`;
+- conteúdo: `📅 <DD/MM/AAAA HH:mm America/Sao_Paulo> · 👤 <autor> · 📝 <título curto>`.
 
-[CALLOUT roxo · 🟣]
-📅 <DD/MM/AAAA HH:mm America/Sao_Paulo> · 👤 <autor> · 📝 <título curto>
+Ao criar o bloco via API/MCP do Notion, usar `icon.emoji = "🟣"` e `color = "purple_background"` no objeto `callout`.
 
-| Campo | Conteúdo |
-|---|---|
-| Execution ID | <id> |
-| Tipo | Registro mínimo |
-| Status | <Sucesso, Parcial, Bloqueado ou Falha da tarefa principal> |
-| Efeito relevante | Não observado |
+## Template de registro
 
-**Resultado:** <uma ou duas frases factuais>
-
-**Ações observáveis:** <até três bullets curtos ou “Nenhuma ação persistente”>
-
-**Critério da classificação:** nenhum gatilho de relatório completo foi observado.
-
-**Próxima ação:** <ação concreta ou “Nenhuma”>
-
-🔑 Execution ID: <id>
-```
-
-Não criar tabelas adicionais, cronologia, métricas, apêndice ou toggles no registro mínimo.
-
-## Template de `COMPLETO`
-
-Usar duas camadas: resumo visual aberto e detalhes técnicos em toggles. Não despejar logs brutos.
+Duas camadas: resumo visual aberto e detalhes técnicos em toggles. Não despejar logs brutos.
 
 ### Camada 1 — sempre visível
 
-1. Callout roxo com `📅 <data/hora> · 👤 <autor> · 📝 <título>`.
+1. Callout de cabeçalho (ver "Formato do callout de cabeçalho").
 2. Callout semântico de status.
 3. `📌 Resumo executivo` com três a oito bullets.
 4. Tabela com `Execution ID`, status, autor e data/hora; incluir projeto, repo, branch, commit, PR e ambiente somente se observados.
@@ -245,12 +180,11 @@ Classificar o resultado principal como `Sucesso`, `Parcial`, `Bloqueado` ou `Fal
 
 Depois da escrita, reler o destino e verificar:
 
-- destino correto para a classificação;
+- destino correto (página da atividade em andamento);
 - um único registro com o `Execution ID`;
 - preservação do conteúdo anterior;
-- campos mínimos presentes;
-- para `MINIMO`, ausência de conteúdo detalhado desnecessário;
-- para `COMPLETO`, duas camadas, seções obrigatórias, evidências e apresentação escaneável;
+- callout de cabeçalho com ícone `🟣` e fundo `purple_background`;
+- duas camadas, seções obrigatórias, evidências e apresentação escaneável;
 - nenhuma afirmação além da evidência;
 - nenhum segredo ou dado sensível.
 
@@ -259,18 +193,12 @@ Corrigir somente o novo registro e reler novamente. Não retomar a tarefa princi
 Se a conexão funcionar, mas a gravação for rejeitada por permissão ou validação, responder somente:
 
 ```text
-⚠️ A tarefa principal foi concluída, mas não consegui registrar a execução em “<título do destino>”.
+⚠️ A tarefa principal foi concluída, mas não consegui registrar a execução em "<título do destino>".
 ```
 
 ## Saída normal única
 
-Após persistir e reler um registro `MINIMO`, responder exatamente:
-
-```text
-✅ Registro mínimo documentado com sucesso
-```
-
-Após persistir e reler um registro `COMPLETO`, responder exatamente:
+Após persistir e reler o registro, responder exatamente:
 
 ```text
 ✅ Documentado em <título da atividade> com sucesso

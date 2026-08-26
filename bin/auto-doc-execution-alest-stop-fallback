@@ -3,11 +3,11 @@
 
 Contexto: o hook UserPromptSubmit (bin/auto-doc-execution-alest-hook) injeta a
 diretiva de carregamento da skill no INICIO do turno, mas a execucao completa
-do contrato (classificar MINIMO/COMPLETO, escrever no Notion via MCP, emitir a
-saida "OK Registro minimo documentado..." ou "OK Documentado em...") depende do
-LLM lembrar de faze-lo ao FINAL de um turno arbitrariamente longo. Turnos com
-muitas ferramentas/edicoes podem terminar sem o agente executar essa etapa --
-falha observada e confirmada em producao (ver README/memoria do projeto).
+do contrato (localizar a pagina da atividade, escrever no Notion via MCP,
+emitir a saida "Documentado em ... com sucesso") depende do LLM lembrar de
+faze-lo ao FINAL de um turno arbitrariamente longo. Turnos com muitas
+ferramentas/edicoes podem terminar sem o agente executar essa etapa -- falha
+observada e confirmada em producao (ver README/memoria do projeto).
 
 Este script roda no evento Stop (dispara DEPOIS que a resposta final do
 assistente ja foi enviada -- side-effect informativo, nao pode reabrir o
@@ -17,8 +17,7 @@ turno) e funciona como uma rede de seguranca puramente LOCAL:
   exigiria um ID fixo, o que a skill deliberadamente evita para funcionar em
   múltiplos projetos sem hub fixo).
 - Verifica se o assistant_text do turno contem a saida esperada do contrato
-  ("Registro minimo documentado com sucesso" ou "Documentado em ... com
-  sucesso" ou o aviso de falha de conexao/permissao ja previstos na skill).
+  ("Documentado em ... com sucesso" ou um dos avisos ja previstos na skill).
 - Se a saida esperada NAO aparecer, grava um registro local (JSONL) com o
   texto final do turno, para que o gap seja visivel e recuperavel depois --
   nunca falha o turno, nunca bloqueia, nunca escreve no Notion por conta
@@ -44,11 +43,12 @@ TAIL_CHARS = 2000
 # Qualquer uma destas ocorrências no texto final confirma que a skill rodou e
 # emitiu sua saida normal (ou um dos avisos previstos por ela mesma).
 EXPECTED_MARKERS = (
-    "Registro mínimo documentado com sucesso",
     "Documentado em",  # cobre "Documentado em <título> com sucesso"
     "não consegui documentar a execução",  # aviso de falha de conexão previsto
+    "não consegui registrar a execução",  # aviso de rejeição por permissão/validação
     "mais de uma página com o título exato",  # aviso de ambiguidade previsto
     "Não encontrei a página",  # pergunta de criação prevista
+    "Não encontrei uma atividade em andamento",  # pergunta de criação prevista
     "Encontrei mais de uma atividade compatível",  # pergunta de ambiguidade prevista
 )
 

@@ -25,7 +25,7 @@ Load skills: $auto-doc-execution-alest
 OBRIGATORIO: apos concluir totalmente a tarefa principal deste turno (e somente apos),
 carregue e execute o contrato completo da skill auto-doc-execution-alest como ultima
 etapa, antes de encerrar a resposta. Nao pule esta etapa mesmo em turnos longos ou apos
-varias edicoes/leituras. A skill decide MINIMO ou COMPLETO e emite a saida definida nela
-(nao substitua por um resumo proprio).
+varias edicoes/leituras. A skill emite a saida definida nela (nao substitua por um
+resumo proprio).
 EOF
 exit 0

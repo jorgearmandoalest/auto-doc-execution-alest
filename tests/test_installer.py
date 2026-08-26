@@ -162,7 +162,7 @@ def test_stop_fallback_skips_when_marker_present() -> None:
         home = Path(temporary)
         _run_stop_fallback(
             home,
-            {"assistant_text": "Trabalho concluído.\n\n✅ Registro mínimo documentado com sucesso"},
+            {"assistant_text": "Trabalho concluído.\n\n✅ Documentado em Atividade X com sucesso"},
         )
         log_file = home / ".kiro" / "crew" / SKILL_NAME / "missed-turns.jsonl"
         assert not log_file.exists()
