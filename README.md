@@ -1,54 +1,24 @@
 # auto-doc-execution-alest
 
-Chain declarativa, sempre ativa e nativa do **Kiro Crew** para manter auditabilidade sem poluir o histórico: registra todo turno no Notion e só gera documentação detalhada quando existe efeito relevante.
-
-## Política de registro
-
-A regra central é:
-
-> **Registro mínimo sempre; relatório completo somente quando houver efeito relevante.**
-
-O relatório completo é uma extensão do registro mínimo. Cada turno possui um único `Execution ID` e nunca gera dois registros.
-
-### Registro mínimo
-
-Usado em perguntas, explicações, traduções, buscas, leituras e conversas sem alteração persistente, decisão relevante, achado material ou pendência acionável.
-
-É salvo na página filha `Registro mínimo`, dentro do hub `Execuções`, contendo somente:
-
-- data, hora e autor;
-- `Execution ID`;
-- status da tarefa principal;
-- resultado em uma ou duas frases;
-- até três ações observáveis;
-- motivo da classificação;
-- próxima ação, quando houver.
-
-### Relatório completo
-
-Usado quando o turno apresenta pelo menos um efeito relevante objetivo:
-
-- mutação em Notion, arquivos, código, databases, configurações, repositórios ou serviços;
-- branch, commit, push, merge, PR, release, deploy, publicação ou rollback;
-- e-mail, mensagem, convite, compartilhamento, permissão ou outra ação externa;
-- artefato persistido;
-- playbook, chain ou skill com entrega ou alteração de estado;
-- decisão que muda abordagem, escopo, prioridade ou restrição;
-- auditoria, investigação, teste ou validação com achado, evidência, falha, risco, bloqueio ou pendência acionável.
-
-O relatório é salvo na página filha da atividade específica e usa duas camadas: resumo visual sempre aberto e detalhes técnicos em toggles.
+Chain declarativa, sempre ativa e nativa do **Kiro Crew** para documentar no Notion cada execução concluída.
 
 ## Runtime declarativo
 
-O único artefato carregado pelo Kiro Crew é [`SKILL.md`](./SKILL.md). O [`install.sh`](./install.sh) apenas instala a skill e não participa da execução.
+Este repositório não contém nem exige:
 
-O repositório não exige npm, Node.js, Python, hook do Kiro IDE, agente auxiliar ou configuração do MCP do Notion.
+- npm;
+- Node.js;
+- Python;
+- scripts de runtime;
+- hooks do Kiro IDE;
+- agentes auxiliares;
+- configuração do MCP do Notion.
 
-O frontmatter `always: true` mantém o contrato carregado em todas as novas sessões. A chain roda exatamente uma vez como última etapa de cada prompt e sua falha nunca reabre, reverte ou altera o status da tarefa principal.
+O único artefato carregado pelo Kiro Crew é [`SKILL.md`](./SKILL.md). O arquivo [`install.sh`](./install.sh) é apenas um instalador auxiliar: ele copia a skill para o diretório correto e não participa de sua execução.
 
-## Instalação
+## Instalação no Kiro Crew
 
-Em Linux ou macOS:
+Em Linux ou macOS, clone o repositório e execute:
 
 ```bash
 git clone git@github.com:jorgearmandoalest/auto-doc-execution-alest.git
@@ -62,72 +32,97 @@ Por padrão, a skill é instalada em:
 ~/.kiro/crew/skills/auto-doc-execution-alest/SKILL.md
 ```
 
-Com diretório personalizado:
+Quando `KIROCREW_HOME` estiver definido, o instalador respeita esse diretório:
 
 ```bash
 KIROCREW_HOME=/caminho/do/kirocrew bash install.sh
 ```
 
-O instalador valida `name` e `always: true`, é idempotente, cria backup antes de substituir uma versão diferente, grava atomicamente e não usa `sudo`, altera MCP/credenciais ou reinicia o gateway.
+O instalador:
 
-Abra uma nova sessão do Kiro Crew após a instalação.
+- valida o nome da skill e `always: true` antes de copiar;
+- pode ser executado de qualquer diretório;
+- não altera nada quando a versão instalada já é idêntica;
+- cria um backup antes de substituir uma versão diferente;
+- grava o novo `SKILL.md` de forma atômica e verifica o resultado;
+- não usa `sudo`, não altera MCP ou credenciais e não reinicia o gateway.
+
+Abra uma nova sessão do Kiro Crew depois da instalação para carregar a skill.
 
 ## Pré-requisito
 
-O Notion deve estar configurado e disponível no gateway do Kiro Crew. A chain não solicita token, instala MCP ou altera credenciais.
+O Notion já deve estar configurado e disponível no gateway do Kiro Crew. A chain não solicita token, não instala MCP e não altera credenciais.
 
-Se a conexão falhar, a tarefa principal permanece inalterada e a chain apenas orienta executar `kirocrew restart`.
+Se a conexão não funcionar, a única saída é:
+
+```text
+⚠️ Não consegui conectar ao Notion. Reinicie o gateway com `kirocrew restart` e tente novamente.
+```
+
+A chain apenas sugere o comando; ela não reinicia o gateway automaticamente.
 
 ## Organização no Notion
 
-```text
-Execuções
-├── Registro mínimo
-├── Documentação do serviço — Serviço Exemplo A
-└── Documentação do serviço — Serviço Exemplo B
-```
+A página `Execuções` funciona como um **hub**. Cada atividade em andamento possui sua própria página filha, por exemplo:
 
-- `Registro mínimo`: ledger compacto dos turnos sem efeito relevante.
-- Páginas de atividade: relatórios completos das execuções com efeito relevante.
-- O hub não recebe registros diretamente.
-- A chain lê antes de escrever, preserva o conteúdo existente e deduplica pelo `Execution ID`.
+- `Documentação do serviço OSB — Member`;
+- `Documentação do serviço OSB — Login`.
 
-A criação do hub, da página `Registro mínimo` ou de uma nova atividade exige autorização quando o destino ainda não existir.
+A chain nunca mistura atividades diferentes e não registra o histórico diretamente no corpo do hub.
 
-## Fluxo por prompt
+## Comportamento
 
-1. concluir a tarefa principal e todas as outras chains;
-2. gerar ou reutilizar o `Execution ID`;
-3. avaliar os critérios objetivos de efeito relevante;
-4. escolher `MINIMO` ou `COMPLETO`;
-5. localizar `Execuções` e o destino correto;
-6. ler, deduplicar, registrar e reler;
-7. encerrar sem executar nova ação da tarefa principal.
+A cada prompt:
 
-Chamadas de leitura não tornam um turno completo por si só. Havendo qualquer mutação, decisão, achado material, falha, risco, bloqueio ou pendência acionável, o relatório completo é obrigatório.
-
-## Saída no chat
-
-Para registro mínimo:
-
-```text
-✅ Registro mínimo documentado com sucesso
-```
-
-Para relatório completo:
+1. a tarefa principal e as demais chains são concluídas;
+2. `auto-doc-execution-alest` roda exatamente uma vez como última etapa;
+3. o hub `Execuções` é localizado pelo título exato;
+4. suas páginas filhas são analisadas para encontrar a atividade em andamento mais compatível;
+5. a execução é registrada e relida na página da atividade;
+6. nenhuma outra ação da tarefa principal é executada;
+7. o chat mostra somente:
 
 ```text
 ✅ Documentado em <título da atividade> com sucesso
 ```
 
-O conteúdo detalhado permanece somente no Notion.
+## Seleção da atividade
 
-## Atualização
+A chain compara a tarefa atual com tipo de atividade, projeto, cliente, sistema, serviço, módulo e objetivo das páginas filhas.
 
-Depois de atualizar o clone local, execute novamente:
+Ela:
 
-```bash
-bash install.sh
+- escolhe automaticamente somente uma correspondência clara;
+- não usa uma página apenas por ser a mais recente;
+- rejeita atividades explicitamente concluídas, canceladas ou arquivadas;
+- pergunta qual usar quando houver mais de uma correspondência igualmente compatível.
+
+## Atividade inexistente
+
+Quando não existe uma atividade compatível, a única confirmação de criação é:
+
+```text
+❓ Não encontrei uma atividade em andamento para esta execução. Deseja que eu crie “<título sugerido>” dentro de “Execuções”?
 ```
+
+Depois da autorização, a chain cria a página filha diretamente no hub e registra a execução nela.
+
+## Registro da execução
+
+Cada execução começa com um callout de fundo roxo:
+
+```text
+📅 DD/MM/AAAA HH:mm (America/Sao_Paulo) · 👤 <autor> · 📝 <título resumido>
+```
+
+Abaixo ficam objetivo, escopo, ações, artefatos, validações, decisões, erros, resultado, próxima ação e `Execution ID`.
+
+A chain lê antes de escrever, preserva o conteúdo existente e deduplica pelo identificador da execução.
+
+## Uso no Kiro Crew
+
+A forma recomendada é executar `bash install.sh`. Como alternativa manual, importe este repositório como uma skill do Kiro Crew ou use o conteúdo de `SKILL.md` na área **Skills**.
+
+O frontmatter `always: true` faz o Kiro Crew carregar o contrato em todas as novas sessões.
 
 Não execute `npm install` ou `npm test`: não há runtime npm neste repositório.
