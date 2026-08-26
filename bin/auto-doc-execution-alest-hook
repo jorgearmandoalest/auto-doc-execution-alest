@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+#
+# Script hook para o Kiro Crew (evento UserPromptSubmit).
+#
+# O runtime do Kiro Crew (kiro_crew/hooks.py, ScriptHook) so executa hooks via
+# o campo "command" (subprocesso real); um campo "skills" no hook.json e
+# ignorado silenciosamente -- nao existe no dataclass ScriptHook nem e lido em
+# nenhum ponto do runtime. Por isso o hook.json anterior (command: "",
+# skills: [...]) disparava (run_count crescia) sem nunca injetar a skill.
+#
+# Este script substitui esse padrao pelo mesmo mecanismo que o hook nativo
+# "Alest Learning Loop -- Preflight" ja usa com sucesso: um script real cujo
+# stdout (exit 0) e injetado como contexto no proximo turno.
+#
+# Contrato: imprime SOMENTE a diretiva de carregamento da skill. Toda a
+# logica de classificacao/persistencia continua em SKILL.md, executada pelo
+# agente ao final do turno -- este script nao decide nada, nao chama Notion,
+# nao falha a tarefa principal.
+
+set -u
+
+cat <<'EOF'
+Load skills: $auto-doc-execution-alest
+
+OBRIGATORIO: apos concluir totalmente a tarefa principal deste turno (e somente apos),
+carregue e execute o contrato completo da skill auto-doc-execution-alest como ultima
+etapa, antes de encerrar a resposta. Nao pule esta etapa mesmo em turnos longos ou apos
+varias edicoes/leituras. A skill decide MINIMO ou COMPLETO e emite a saida definida nela
+(nao substitua por um resumo proprio).
+EOF
+exit 0

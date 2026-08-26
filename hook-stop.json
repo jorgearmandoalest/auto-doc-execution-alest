@@ -1,0 +1,9 @@
+{
+  "id": "auto-doc-execution-alest-stop-fallback",
+  "name": "auto-doc-execution-alest-stop-fallback",
+  "event": "Stop",
+  "matcher": "",
+  "command": "$HOME/.kiro/bin/auto-doc-execution-alest-stop-fallback",
+  "timeout": 15,
+  "enabled": true
+}

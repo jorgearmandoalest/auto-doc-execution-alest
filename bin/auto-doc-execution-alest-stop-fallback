@@ -1,0 +1,120 @@
+#!/usr/bin/env python3
+"""Hook Stop do Kiro Crew para auto-doc-execution-alest.
+
+Contexto: o hook UserPromptSubmit (bin/auto-doc-execution-alest-hook) injeta a
+diretiva de carregamento da skill no INICIO do turno, mas a execucao completa
+do contrato (classificar MINIMO/COMPLETO, escrever no Notion via MCP, emitir a
+saida "OK Registro minimo documentado..." ou "OK Documentado em...") depende do
+LLM lembrar de faze-lo ao FINAL de um turno arbitrariamente longo. Turnos com
+muitas ferramentas/edicoes podem terminar sem o agente executar essa etapa --
+falha observada e confirmada em producao (ver README/memoria do projeto).
+
+Este script roda no evento Stop (dispara DEPOIS que a resposta final do
+assistente ja foi enviada -- side-effect informativo, nao pode reabrir o
+turno) e funciona como uma rede de seguranca puramente LOCAL:
+
+- Nao escreve no Notion (decisao explicita: a busca semantica de pagina/hub
+  exigiria um ID fixo, o que a skill deliberadamente evita para funcionar em
+  múltiplos projetos sem hub fixo).
+- Verifica se o assistant_text do turno contem a saida esperada do contrato
+  ("Registro minimo documentado com sucesso" ou "Documentado em ... com
+  sucesso" ou o aviso de falha de conexao/permissao ja previstos na skill).
+- Se a saida esperada NAO aparecer, grava um registro local (JSONL) com o
+  texto final do turno, para que o gap seja visivel e recuperavel depois --
+  nunca falha o turno, nunca bloqueia, nunca escreve no Notion por conta
+  propria.
+
+Cada linha do log e um objeto JSON com: timestamp, session_key (se disponivel),
+assistant_text_tail (ultimos ~2000 chars, para nao inflar o arquivo), e reason.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+LOG_DIR = Path.home() / ".kiro" / "crew" / "auto-doc-execution-alest"
+LOG_FILE = LOG_DIR / "missed-turns.jsonl"
+MAX_LOG_BYTES = 5 * 1024 * 1024  # 5 MB: rotaciona antes de crescer sem limite
+TAIL_CHARS = 2000
+
+# Qualquer uma destas ocorrências no texto final confirma que a skill rodou e
+# emitiu sua saida normal (ou um dos avisos previstos por ela mesma).
+EXPECTED_MARKERS = (
+    "Registro mínimo documentado com sucesso",
+    "Documentado em",  # cobre "Documentado em <título> com sucesso"
+    "não consegui documentar a execução",  # aviso de falha de conexão previsto
+    "mais de uma página com o título exato",  # aviso de ambiguidade previsto
+    "Não encontrei a página",  # pergunta de criação prevista
+    "Encontrei mais de uma atividade compatível",  # pergunta de ambiguidade prevista
+)
+
+
+def _read_hook_event() -> dict:
+    try:
+        raw = sys.stdin.read()
+    except Exception:
+        return {}
+    if not raw.strip():
+        return {}
+    try:
+        data = json.loads(raw)
+    except (json.JSONDecodeError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _rotate_if_needed() -> None:
+    try:
+        if LOG_FILE.exists() and LOG_FILE.stat().st_size > MAX_LOG_BYTES:
+            stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+            LOG_FILE.rename(LOG_FILE.with_name(f"missed-turns-{stamp}.jsonl"))
+    except OSError:
+        pass  # rotação é conveniência, nunca deve bloquear o registro
+
+
+def _matched_marker(text: str) -> str | None:
+    for marker in EXPECTED_MARKERS:
+        if marker in text:
+            return marker
+    return None
+
+
+def main() -> int:
+    event = _read_hook_event()
+    assistant_text = str(event.get("assistant_text") or "")
+    session_key = str(event.get("parent_session_key") or event.get("session_key") or "")
+
+    if not assistant_text.strip():
+        # Turno sem texto final (ex: só tool calls, sem resposta textual) --
+        # não há como avaliar; não registra falso positivo.
+        return 0
+
+    marker = _matched_marker(assistant_text)
+    if marker is not None:
+        return 0  # a skill (ou um dos avisos previstos por ela) já rodou
+
+    tail = assistant_text[-TAIL_CHARS:]
+    record = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "session_key": session_key,
+        "reason": "auto-doc-execution-alest não emitiu a saída esperada neste turno",
+        "assistant_text_tail": tail,
+    }
+
+    try:
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        _rotate_if_needed()
+        with LOG_FILE.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except OSError:
+        pass  # best-effort: falha de log nunca deve afetar o gateway
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

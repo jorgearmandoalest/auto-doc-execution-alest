@@ -15,8 +15,23 @@ from pathlib import Path
 from typing import Any
 
 SKILL_NAME = "auto-doc-execution-alest"
-HOOK_ID = "auto-doc-execution-alest"
 TELEMETRY_FIELDS = ("last_run", "last_status", "last_error", "run_count")
+
+# Cada entrada descreve um hook gerenciado por este instalador: seu HOOK_ID
+# canônico, o evento esperado, e o nome do script real (validado como sufixo
+# de "command", já que o caminho completo varia por HOME/KIRO_HOME).
+_HOOK_DEFINITIONS: dict[str, dict[str, str]] = {
+    "auto-doc-execution-alest": {
+        "hook_id": "auto-doc-execution-alest",
+        "event": "UserPromptSubmit",
+        "script_name": "auto-doc-execution-alest-hook",
+    },
+    "auto-doc-execution-alest-stop-fallback": {
+        "hook_id": "auto-doc-execution-alest-stop-fallback",
+        "event": "Stop",
+        "script_name": "auto-doc-execution-alest-stop-fallback",
+    },
+}
 
 
 class InstallError(RuntimeError):
@@ -35,42 +50,68 @@ def _read_json_object(path: Path) -> dict[str, Any]:
     return value
 
 
+def _resolve_definition(path: Path) -> dict[str, str]:
+    """Escolhe a definição esperada pelo nome do arquivo fonte (hook.json / hook-stop.json)."""
+    stem = path.stem  # "hook" ou "hook-stop"
+    if stem == "hook":
+        return _HOOK_DEFINITIONS["auto-doc-execution-alest"]
+    if stem == "hook-stop":
+        return _HOOK_DEFINITIONS["auto-doc-execution-alest-stop-fallback"]
+    raise InstallError(
+        f"fonte de hook não reconhecida: {path.name} (esperado hook.json ou hook-stop.json)"
+    )
+
+
 def _load_and_validate_source(path: Path) -> dict[str, Any]:
     if path.is_symlink() or not path.is_file():
         raise InstallError(f"fonte de hook inválida: {path}")
     hook = _read_json_object(path)
+    definition = _resolve_definition(path)
 
-    expected = {
-        "id": HOOK_ID,
-        "name": SKILL_NAME,
-        "event": "UserPromptSubmit",
+    # O runtime do Kiro Crew (kiro_crew/hooks.py, dataclass ScriptHook) só
+    # executa hooks via "command" (subprocesso real). Um campo "skills" no
+    # hook.json é lido do disco mas nunca chega ao objeto ScriptHook em
+    # memória — não existe no dataclass nem é consultado em nenhum ponto do
+    # runtime. Por isso um hook dispara (run_count cresce) sem nunca carregar
+    # a skill quando "command" está vazio. O contrato correto é "command"
+    # apontar para um script real, replicando o padrão do hook nativo
+    # "Alest Learning Loop — Preflight".
+    expected_static = {
+        "id": definition["hook_id"],
+        "name": definition["hook_id"],
+        "event": definition["event"],
         "matcher": "",
-        "matcher_mode": "glob",
-        "command": "",
-        "skills": [SKILL_NAME],
-        "timeout": 30,
         "enabled": True,
     }
-    for key, value in expected.items():
+    for key, value in expected_static.items():
         if hook.get(key) != value:
             raise InstallError(
-                f"hook.json inválido: {key!r} deve ser {value!r}, "
+                f"{path.name} inválido: {key!r} deve ser {value!r}, "
                 f"mas é {hook.get(key)!r}"
             )
+    command = hook.get("command")
+    script_name = definition["script_name"]
+    if not isinstance(command, str) or not command.endswith(f"/{script_name}"):
+        raise InstallError(
+            f"{path.name} inválido: 'command' deve apontar para .../{script_name}, "
+            f"mas é {command!r}"
+        )
+    timeout = hook.get("timeout")
+    if not isinstance(timeout, int) or not (1 <= timeout <= 300):
+        raise InstallError(f"{path.name} inválido: 'timeout' deve ser um inteiro entre 1 e 300")
     return hook
 
 
-def _is_managed_hook(value: object) -> bool:
+def _is_managed_hook(value: object, definition: dict[str, str]) -> bool:
     if not isinstance(value, dict):
         return False
-    if value.get("id") == HOOK_ID or value.get("name") == SKILL_NAME:
+    if value.get("id") == definition["hook_id"] or value.get("name") == definition["hook_id"]:
         return True
-    skills = value.get("skills")
+    command = value.get("command")
     return (
-        value.get("event") == "UserPromptSubmit"
-        and not value.get("command")
-        and isinstance(skills, list)
-        and SKILL_NAME in skills
+        value.get("event") == definition["event"]
+        and isinstance(command, str)
+        and command.endswith(f"/{definition['script_name']}")
     )
 
 
@@ -99,15 +140,16 @@ def _atomic_write(path: Path, data: dict[str, Any], mode: int) -> None:
         raise
 
 
-def _verify_install(path: Path, canonical: dict[str, Any]) -> None:
+def _verify_install(path: Path, canonical: dict[str, Any], definition: dict[str, str]) -> None:
     data = _read_json_object(path)
     hooks = data.get("hooks")
     if not isinstance(hooks, list):
         raise InstallError("verificação falhou: hooks não é uma lista")
-    managed = [item for item in hooks if _is_managed_hook(item)]
+    managed = [item for item in hooks if _is_managed_hook(item, definition)]
     if len(managed) != 1:
         raise InstallError(
-            f"verificação falhou: esperava um hook gerenciado, encontrei {len(managed)}"
+            f"verificação falhou: esperava um hook gerenciado ({definition['hook_id']}), "
+            f"encontrei {len(managed)}"
         )
     for key, value in canonical.items():
         if key in TELEMETRY_FIELDS:
@@ -117,6 +159,7 @@ def _verify_install(path: Path, canonical: dict[str, Any]) -> None:
 
 
 def install(source: Path, destination: Path) -> tuple[str, Path | None]:
+    definition = _resolve_definition(source)
     canonical = _load_and_validate_source(source)
     destination.parent.mkdir(parents=True, exist_ok=True)
 
@@ -144,7 +187,9 @@ def install(source: Path, destination: Path) -> tuple[str, Path | None]:
                 f"{destination} contém 'hooks' que não é uma lista; nada foi alterado"
             )
 
-        match_indexes = [i for i, item in enumerate(raw_hooks) if _is_managed_hook(item)]
+        match_indexes = [
+            i for i, item in enumerate(raw_hooks) if _is_managed_hook(item, definition)
+        ]
         if match_indexes:
             first = raw_hooks[match_indexes[0]]
             if isinstance(first, dict):
@@ -156,7 +201,7 @@ def install(source: Path, destination: Path) -> tuple[str, Path | None]:
         new_hooks: list[object] = []
         inserted = False
         for item in raw_hooks:
-            if _is_managed_hook(item):
+            if _is_managed_hook(item, definition):
                 if not inserted:
                     new_hooks.append(canonical)
                     inserted = True
@@ -168,7 +213,7 @@ def install(source: Path, destination: Path) -> tuple[str, Path | None]:
         updated = dict(current)
         updated["hooks"] = new_hooks
         if updated == current:
-            _verify_install(destination, canonical)
+            _verify_install(destination, canonical, definition)
             return "unchanged", None
 
         mode = 0o600
@@ -183,7 +228,7 @@ def install(source: Path, destination: Path) -> tuple[str, Path | None]:
         try:
             _atomic_write(destination, updated, mode)
             replaced = True
-            _verify_install(destination, canonical)
+            _verify_install(destination, canonical, definition)
         except BaseException:
             if replaced:
                 if backup is not None and backup.exists():
